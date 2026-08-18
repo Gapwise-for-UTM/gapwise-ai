@@ -4,7 +4,12 @@ import {
 } from "mcp-handler";
 import { supabaseIssuer } from "@/src/config";
 
-const handler = protectedResourceHandler({ authServerUrls: [supabaseIssuer()] });
-const corsHandler = metadataCorsOptionsRequestHandler();
+export const dynamic = "force-dynamic";
 
-export { handler as GET, corsHandler as OPTIONS };
+export async function GET(request: Request) {
+  return protectedResourceHandler({ authServerUrls: [supabaseIssuer()] })(request);
+}
+
+export async function OPTIONS() {
+  return metadataCorsOptionsRequestHandler()();
+}
