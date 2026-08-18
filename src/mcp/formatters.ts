@@ -5,6 +5,7 @@ import {
   GapContextOutputSchema,
   WeekScheduleOutputSchema,
 } from "@/src/mcp/output-schemas";
+import { withMcpDataBoundary } from "@/src/mcp/text-content";
 
 type DaySchedule = z.infer<typeof DayScheduleOutputSchema>;
 type WeekSchedule = z.infer<typeof WeekScheduleOutputSchema>;
@@ -35,12 +36,16 @@ function locationForMeeting(meeting: Meeting): string {
 }
 
 function meetingLine(meeting: Meeting): string {
-  const name = meeting.courseName && meeting.courseName !== meeting.courseCode ? ` — ${meeting.courseName}` : "";
+  const name =
+    meeting.courseName && meeting.courseName !== meeting.courseCode ? ` — ${meeting.courseName}` : "";
   return `- ${clock(meeting.startTime)}–${clock(meeting.endTime)} ${meeting.courseCode} ${meeting.sectionCode} (${meeting.activityType})${name} — ${locationForMeeting(meeting)}`;
 }
 
 function personalItemLine(item: PersonalItem): string {
-  const location = [item.locationBuildingCode, item.locationRoom].filter(Boolean).join(" ") || item.locationText || "No location";
+  const location =
+    [item.locationBuildingCode, item.locationRoom].filter(Boolean).join(" ") ||
+    item.locationText ||
+    "No location";
   if (isFixedPersonal(item)) {
     return `- ${clock(item.startTime)}–${clock(item.endTime)} ${item.title} [${item.category}] — ${location}`;
   }
@@ -70,7 +75,9 @@ function gapPlanLines(plan: GapPlan): string[] {
   if (primary.reasons.length) lines.push(`  Why: ${primary.reasons.join(" ")}`);
   if (assessment.warnings.length) lines.push(`  Warnings: ${assessment.warnings.join(" ")}`);
   if (assessment.alternatives.length) {
-    lines.push(`  Alternatives: ${assessment.alternatives.map((item) => `${item.title} (${item.activityMinutes} min)`).join("; ")}.`);
+    lines.push(
+      `  Alternatives: ${assessment.alternatives.map((item) => `${item.title} (${item.activityMinutes} min)`).join("; ")}.`,
+    );
   }
   return lines;
 }
@@ -86,14 +93,18 @@ export function formatDaySchedule(value: DaySchedule): string {
   lines.push("Academic meetings:");
   lines.push(...(value.meetings.length ? value.meetings.map(meetingLine) : ["- None."]));
   lines.push("Delegated personal items:");
-  lines.push(...(value.personalItems.length ? value.personalItems.map(personalItemLine) : ["- None shared for this day."]));
+  lines.push(
+    ...(value.personalItems.length
+      ? value.personalItems.map(personalItemLine)
+      : ["- None shared for this day."]),
+  );
   lines.push("Gapwise gap plans:");
   if (value.gapPlans.length) {
     for (const plan of value.gapPlans) lines.push(...gapPlanLines(plan));
   } else {
     lines.push("- None shared for this day.");
   }
-  return lines.join("\n");
+  return withMcpDataBoundary(lines.join("\n"));
 }
 
 export function formatWeekSchedule(value: WeekSchedule): string {
@@ -116,7 +127,7 @@ export function formatWeekSchedule(value: WeekSchedule): string {
     }
   }
   if (lines.length === 1) lines.push("No delegated timetable data is present for this term.");
-  return lines.join("\n");
+  return withMcpDataBoundary(lines.join("\n"));
 }
 
 export function formatGapContext(value: GapContext): string {
@@ -124,13 +135,24 @@ export function formatGapContext(value: GapContext): string {
     `Gapwise gap context for ${value.weekday}, ${value.term}: ${clock(value.requestedWindow.startTime)}–${clock(value.requestedWindow.endTime)} (${value.requestedWindow.durationMinutes} min), revision ${value.revision}.`,
     `Planning status: ${value.planningStatus}.`,
   ];
-  if (value.previous) lines.push(`Previous boundary (${value.previous.source}): ${JSON.stringify(value.previous.item)}`);
-  if (value.next) lines.push(`Next boundary (${value.next.source}): ${JSON.stringify(value.next.item)}`);
-  if (value.gapPlan) lines.push("Gapwise deterministic assessment:", ...gapPlanLines(value.gapPlan));
-  else lines.push("No matching delegated Gapwise gap plan exists for this exact window.");
-  if (value.gapPreferences) lines.push(compactJson("Delegated gap preferences", value.gapPreferences));
-  if (value.routingPreferences) lines.push(compactJson("Delegated routing preferences", value.routingPreferences));
-  return lines.join("\n");
+  if (value.previous) {
+    lines.push(`Previous boundary (${value.previous.source}): ${JSON.stringify(value.previous.item)}`);
+  }
+  if (value.next) {
+    lines.push(`Next boundary (${value.next.source}): ${JSON.stringify(value.next.item)}`);
+  }
+  if (value.gapPlan) {
+    lines.push("Gapwise deterministic assessment:", ...gapPlanLines(value.gapPlan));
+  } else {
+    lines.push("No matching delegated Gapwise gap plan exists for this exact window.");
+  }
+  if (value.gapPreferences) {
+    lines.push(compactJson("Delegated gap preferences", value.gapPreferences));
+  }
+  if (value.routingPreferences) {
+    lines.push(compactJson("Delegated routing preferences", value.routingPreferences));
+  }
+  return withMcpDataBoundary(lines.join("\n"));
 }
 
 export function formatPreferences(value: {
@@ -139,10 +161,12 @@ export function formatPreferences(value: {
   gapPreferences: unknown;
   routingPreferences: unknown;
 }): string {
-  return [
-    `Gapwise delegated AI preferences — revision ${value.revision}.`,
-    compactJson("Permissions", value.permissions),
-    compactJson("Gap preferences", value.gapPreferences),
-    compactJson("Routing preferences", value.routingPreferences),
-  ].join("\n");
+  return withMcpDataBoundary(
+    [
+      `Gapwise delegated AI preferences — revision ${value.revision}.`,
+      compactJson("Permissions", value.permissions),
+      compactJson("Gap preferences", value.gapPreferences),
+      compactJson("Routing preferences", value.routingPreferences),
+    ].join("\n"),
+  );
 }
