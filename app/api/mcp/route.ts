@@ -2,7 +2,11 @@ import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { z } from "zod";
 import type { VerifiedCaller } from "@/src/auth/verify";
 import { verifyMcpToken } from "@/src/auth/verify";
-import { mcpAuthenticationRequired, OPENAI_TOOL_META } from "@/src/auth/mcp";
+import {
+  installToolSecuritySchemeProjection,
+  mcpAuthenticationRequired,
+  OPENAI_TOOL_META,
+} from "@/src/auth/mcp";
 import {
   GapPreferencesPatchSchema,
   PersonalItemDraftSchema,
@@ -313,7 +317,7 @@ const handler = createMcpHandler(
       {
         title: "Delete a personal Gapwise timetable item",
         description:
-          "Queue deletion of an existing delegated personal timetable item. This is destructive and requires explicit write permission plus the current revision. Academic classes cannot be targeted.",
+          "Queue deletion of an existing delegated personal timetable item. This is destructive and requires explicit write permission plus the current snapshot revision. Academic classes cannot be targeted.",
         inputSchema: z
           .object({
             expectedRevision: revision,
@@ -383,6 +387,8 @@ const handler = createMcpHandler(
         }
       },
     );
+
+    installToolSecuritySchemeProjection(server);
   },
   {
     serverInfo: { name: "gapwise-ai", version: "0.1.0" },
@@ -393,10 +399,6 @@ const handler = createMcpHandler(
   },
 );
 
-// Keep MCP discovery and tools/list available to unauthenticated clients so
-// ChatGPT/Claude can scan the server and discover OAuth metadata. Individual
-// tools fail closed with an in-band `mcp/www_authenticate` challenge until a
-// valid, resource-bound Supabase OAuth token has been attached by the wrapper.
 const authenticated = withMcpAuth(handler, verifyMcpToken, {
   required: false,
   resourceMetadataPath: "/.well-known/oauth-protected-resource",
