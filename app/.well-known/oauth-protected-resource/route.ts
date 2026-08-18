@@ -8,6 +8,6 @@ export async function GET(request: Request) {
   return protectedResourceHandler({ authServerUrls: [supabaseIssuer()] })(request);
 }
 
-export async function OPTIONS(request: Request) {
-  return metadataCorsOptionsRequestHandler()(request);
+export async function OPTIONS() {
+  return metadataCorsOptionsRequestHandler()();
 }
