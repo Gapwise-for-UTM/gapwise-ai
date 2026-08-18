@@ -2,6 +2,17 @@
   "name": "gapwise-ai",
   "version": "0.1.0",
   "private": true,
+  "description": "Permissioned, provider-neutral MCP integration service for Gapwise.",
+  "license": "MIT",
+  "author": "Andrew Muratov",
+  "homepage": "https://gapwise.ca",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/andrewmuratov/gapwise-ai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/andrewmuratov/gapwise-ai/issues"
+  },
   "type": "module",
   "engines": {
     "node": "24.x"

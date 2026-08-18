@@ -1,17 +1,48 @@
-# Security policy
+# Security Policy
 
-Gapwise AI is a private integration service for Gapwise. Report security issues privately to the repository owner; do not open public disclosure issues while the repository remains private.
+Gapwise AI handles explicitly delegated private timetable data and authenticated write requests. Security reports are taken seriously and should be disclosed privately.
 
-## Security boundaries
+## Reporting a vulnerability
 
-- Never store or log model prompts, timetable plaintext, tool arguments, tool results, access tokens, refresh tokens, OAuth codes, or encryption keys.
-- Never request or possess Gapwise's main encrypted-private-data DEK.
-- ACORN-imported academic meetings are read-only to AI integrations.
-- AI write tools are limited to explicitly delegated personal timetable items and preferences.
-- All private reads and writes require a valid user-scoped Supabase access token.
-- Database rows are owner-scoped with RLS; private AI payloads are encrypted before database storage with a server-only key.
-- Revocation must fail closed.
+**Do not open a public GitHub issue for a suspected security vulnerability.**
+
+When this repository is public, use GitHub's private security reporting / Security Advisory flow when available. If private reporting is not available, contact the repository owner privately through GitHub and include only the minimum information needed to establish contact; sensitive proof-of-concept details should remain in a private channel.
+
+A useful report includes:
+
+- the affected route, tool, or component;
+- the expected security property;
+- the observed behavior;
+- reproduction steps using non-production/test data;
+- impact and any known prerequisites.
+
+Please do not access another user's data, perform destructive testing against production, publish credentials/tokens, or disclose a vulnerability publicly before a fix can be evaluated.
+
+## Supported code
+
+Security fixes target the current `main` branch and the production deployment derived from it. Older commits, forks, and independently deployed instances are not supported by the Gapwise project.
+
+## Non-negotiable security boundaries
+
+- Never store or log model prompts, private tool arguments/results, access tokens, refresh tokens, OAuth codes, encryption keys, or decrypted timetable/action payloads.
+- Never request or possess Gapwise's primary encrypted-private-data DEK/KEK.
+- Raw ACORN `.ics`, friend/friend-overlap data, precise live/background location, and unrelated browser data are outside the private MCP tool surface.
+- ACORN/source-backed academic meetings are read-only to AI integrations; no academic mutation tool may be exposed.
+- AI write tools are limited to explicitly delegated personal timetable items and permitted preferences.
+- Private reads and writes require a valid user-scoped Supabase access token.
+- MCP access additionally requires an OAuth client identity; OAuth-client tokens may not use browser-authoritative mutation endpoints.
+- Database rows remain caller-scoped with RLS; private AI payloads are encrypted before database storage with a separate server-only data key.
+- Writes remain typed, revision-bound, and idempotency-bounded; stale writes fail closed.
+- Revocation must remove delegated state/actions and make subsequent private reads/writes fail closed.
 
 ## Secrets
 
-Production secrets belong in Vercel environment variables only. Do not commit them to GitHub, expose them through `NEXT_PUBLIC_` variables, include them in tool results, or print them in logs.
+Production secrets belong in the deployment platform's server-only environment variables. Do not commit them to GitHub, expose them through `NEXT_PUBLIC_*` variables, include them in MCP/tool responses, or print them in logs.
+
+The Supabase publishable key is designed for client-side use and is not treated as a privileged database credential. Service-role keys, database passwords, private signing material, AI data-encryption keys, OAuth client secrets, and user tokens must never be committed.
+
+## Public-source posture
+
+Gapwise AI is designed so that publishing the source code does not weaken its security model. Authentication, authorization, RLS, cryptographic key separation, and fail-closed validation are the security controls; repository secrecy is not.
+
+The repository should nevertheless remain private until the release checklist's real-client OAuth and revocation tests have passed, so a public release represents a validated security contract rather than an unfinished integration.
