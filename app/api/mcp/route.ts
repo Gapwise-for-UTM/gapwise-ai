@@ -28,13 +28,21 @@ const idempotencyKey = z
   .describe("Optional stable retry key. Reuse the same value when retrying the exact same requested change.");
 
 function callerFromContext(ctx: {
-  http?: { authInfo?: { token: string; clientId: string; expiresAt?: number } };
+  http?: {
+    authInfo?: {
+      token: string;
+      clientId: string;
+      expiresAt?: number;
+      extra?: Record<string, unknown>;
+    };
+  };
 }): VerifiedCaller {
   const auth = ctx.http?.authInfo;
-  if (!auth?.token || !auth.clientId || !auth.expiresAt) {
+  const userId = auth?.extra?.["userId"];
+  if (!auth?.token || !auth.expiresAt || typeof userId !== "string") {
     throw new Error("Authenticated caller context is missing.");
   }
-  return { userId: auth.clientId, accessToken: auth.token, expiresAt: auth.expiresAt };
+  return { userId, accessToken: auth.token, expiresAt: auth.expiresAt };
 }
 
 function ok(summary: string, value: Record<string, unknown>) {
