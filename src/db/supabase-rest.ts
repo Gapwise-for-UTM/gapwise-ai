@@ -29,6 +29,13 @@ export type ActionRow = {
   completed_at: string | null;
 };
 
+export type ApprovedOAuthClientRow = {
+  user_id: string;
+  client_id: string;
+  client_name: string;
+  created_at: string;
+};
+
 export class RestRequestError extends Error {
   constructor(public readonly status: number) {
     super(`Supabase request failed with status ${status}.`);
@@ -163,4 +170,32 @@ export async function completeActionRow(
     },
   );
   return rows[0] ?? null;
+}
+
+export async function listApprovedOAuthClients(
+  caller: VerifiedCaller,
+): Promise<ApprovedOAuthClientRow[]> {
+  return rest<ApprovedOAuthClientRow[]>(
+    caller,
+    `ai_oauth_clients?select=user_id,client_id,client_name,created_at&${ownerFilter(caller.userId)}&order=created_at.asc`,
+  );
+}
+
+export async function insertApprovedOAuthClient(
+  caller: VerifiedCaller,
+  clientId: string,
+  clientName: string,
+): Promise<void> {
+  await rest<unknown>(caller, "ai_oauth_clients", {
+    method: "POST",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ user_id: caller.userId, client_id: clientId, client_name: clientName }),
+  });
+}
+
+export async function deleteAllApprovedOAuthClients(caller: VerifiedCaller): Promise<void> {
+  await rest<void>(caller, `ai_oauth_clients?${ownerFilter(caller.userId)}`, {
+    method: "DELETE",
+    headers: { Prefer: "return=minimal" },
+  });
 }
