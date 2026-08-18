@@ -1,5 +1,5 @@
 import type { AuthInfo } from "@modelcontextprotocol/server";
-import { getRuntimeConfig } from "@/src/config";
+import { canonicalMcpResourceUrl, getRuntimeConfig } from "@/src/config";
 
 export type VerifiedCaller = {
   userId: string;
@@ -8,8 +8,10 @@ export type VerifiedCaller = {
 };
 
 type JwtClaims = {
+  aud?: unknown;
   client_id?: unknown;
   exp?: unknown;
+  resource?: unknown;
   sub?: unknown;
 };
 
@@ -23,9 +25,23 @@ function jwtClaims(token: string): JwtClaims | null {
   }
 }
 
+function claimContains(value: unknown, expected: string): boolean {
+  if (typeof value === "string") return value === expected;
+  return Array.isArray(value) && value.some((item) => item === expected);
+}
+
 export function oauthClientIdFromAccessToken(token: string): string | null {
   const value = jwtClaims(token)?.client_id;
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+export function accessTokenTargetsResource(token: string, expectedResource: string): boolean {
+  const claims = jwtClaims(token);
+  if (!claims) return false;
+  return (
+    claimContains(claims.resource, expectedResource) ||
+    claimContains(claims.aud, expectedResource)
+  );
 }
 
 export async function verifySupabaseAccessToken(token: string): Promise<VerifiedCaller | null> {
@@ -56,7 +72,7 @@ export async function verifySupabaseAccessToken(token: string): Promise<Verified
 }
 
 export async function verifyMcpToken(
-  _request: Request,
+  request: Request,
   bearerToken?: string,
 ): Promise<AuthInfo | undefined> {
   if (!bearerToken) return undefined;
@@ -67,6 +83,13 @@ export async function verifyMcpToken(
   // browser sessions use the browser delegation API and do not carry client_id.
   const clientId = oauthClientIdFromAccessToken(bearerToken);
   if (!clientId) return undefined;
+
+  // Bind OAuth bearer tokens to this exact MCP protected resource. Supabase's
+  // normal user-session audience remains untouched; OAuth issuance adds the
+  // canonical resource claim through the custom access-token hook.
+  const config = getRuntimeConfig();
+  const expectedResource = canonicalMcpResourceUrl(request.url, config.aiOrigin);
+  if (!accessTokenTargetsResource(bearerToken, expectedResource)) return undefined;
 
   return {
     token: bearerToken,
