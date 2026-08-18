@@ -32,8 +32,16 @@ describe("AI data envelopes", () => {
     ).toThrow();
   });
 
-  it("requires exactly 32 key bytes", () => {
+  it("accepts standard Base64/Base64url encodings of exactly 32 random bytes", () => {
+    const bytes = Buffer.from(Array.from({ length: 32 }, (_, index) => (index * 17 + 251) % 256));
+    expect(parseDataKey(bytes.toString("base64url"))).toEqual(bytes);
+    expect(parseDataKey(bytes.toString("base64"))).toEqual(bytes);
+    expect(parseDataKey(bytes.toString("base64").replace(/=+$/u, ""))).toEqual(bytes);
+  });
+
+  it("requires exactly 32 key bytes and rejects non-Base64 secret text", () => {
     expect(parseDataKey(key)).toHaveLength(32);
     expect(() => parseDataKey(Buffer.alloc(31).toString("base64url"))).toThrow();
+    expect(() => parseDataKey('"not a key"')).toThrow();
   });
 });
