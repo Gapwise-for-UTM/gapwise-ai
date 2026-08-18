@@ -1,4 +1,4 @@
-import { authenticateRequest } from "@/src/auth/verify";
+import { authenticateRequest, oauthClientIdFromAccessToken } from "@/src/auth/verify";
 import { getRuntimeConfig } from "@/src/config";
 import { DelegationError } from "@/src/delegation/service";
 
@@ -58,6 +58,15 @@ export async function browserCaller(request: Request) {
   if (!headers) return { response: Response.json({ error: "origin_not_allowed" }, { status: 403 }) } as const;
   const caller = await authenticateRequest(request);
   if (!caller) return { response: jsonResponse(request, { error: "unauthorized" }, 401) } as const;
+
+  // Browser bridge routes are first-party Gapwise surfaces. OAuth-client access
+  // belongs exclusively on /api/mcp, even when that client has been approved in
+  // RLS. This prevents third-party clients from bypassing MCP tool contracts and
+  // reading decrypted browser-only queue state directly.
+  if (oauthClientIdFromAccessToken(caller.accessToken)) {
+    return { response: jsonResponse(request, { error: "oauth_client_not_allowed" }, 403) } as const;
+  }
+
   return { caller } as const;
 }
 
