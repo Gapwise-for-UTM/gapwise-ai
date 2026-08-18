@@ -1,24 +1,43 @@
 # Authentication
 
-Gapwise AI has two authentication paths with different purposes.
+Gapwise AI has two authentication paths with deliberately different authority.
 
 ## MCP OAuth
 
-`/api/mcp` is an OAuth protected resource backed by the existing Gapwise Supabase Auth project. The server verifies each bearer token by calling Supabase Auth's `/auth/v1/user` endpoint with the project's non-privileged publishable key, then checks the accepted JWT claims for expiration and subject consistency.
+`/api/mcp` is an OAuth-protected resource backed by Gapwise's existing Supabase Auth project. The service first asks Supabase Auth's `/auth/v1/user` endpoint to validate the bearer token, then independently checks the resource-server claims that matter to Gapwise AI.
 
-MCP access has two additional requirements:
+An MCP bearer token is accepted only when all of the following hold:
 
-1. the accepted access token must contain a non-empty Supabase OAuth `client_id` claim, so an ordinary Gapwise browser session cannot be replayed as an MCP credential; and
-2. the token must target the exact MCP resource `https://ai.gapwise.ca/api/mcp` through either its `resource` claim or audience.
+1. its issuer is the Gapwise Supabase Auth issuer;
+2. its subject matches the Supabase user returned by `/auth/v1/user`;
+3. it is currently valid (`exp`, and `nbf` when present);
+4. it contains a non-empty OAuth `client_id`, which distinguishes a third-party OAuth credential from an ordinary Gapwise browser session;
+5. its `aud` contains exactly the canonical protected resource `https://ai.gapwise.ca/api/mcp`; and
+6. its granted OAuth scope contains the minimal advertised `email` identity scope.
 
-Production requests through either `ai.gapwise.ca` or `gapwise-ai.vercel.app` resolve to that same canonical protected-resource identifier.
+The audience is not granted merely because a client registered with Supabase. Gapwise's custom access-token hook checks the exact `(user_id, client_id)` against `ai_oauth_clients`; only a client the user approved through the Gapwise consent flow receives the MCP audience at token issuance. Unapproved OAuth clients and normal Gapwise browser sessions keep Supabase's normal audience and fail the MCP audience check.
 
-The MCP transport itself permits unauthenticated discovery and `tools/list` so clients such as ChatGPT and Claude can scan the server and learn how to authenticate. Tool execution remains fail-closed: every tool returns an MCP `mcp/www_authenticate` challenge until the wrapper has attached a valid resource-bound OAuth caller.
+The `email` OAuth scope is an identity/discovery scope supported by Supabase, not a Gapwise timetable permission. Fine-grained schedule, personal-item, gap-plan, routing, and write permissions remain in the explicitly delegated Gapwise AI snapshot and database policies. Gapwise does not invent unsupported custom OAuth scopes.
 
-Supabase currently exposes standard identity scopes rather than Gapwise-specific OAuth scopes. Fine-grained authorization therefore remains inside the encrypted Gapwise AI delegation snapshot and the database's OAuth-client isolation policies instead of inventing unsupported scopes.
+Production requests through either `ai.gapwise.ca` or the Vercel infrastructure alias resolve to the same canonical protected-resource identifier.
+
+### Discovery and linking
+
+The MCP transport permits unauthenticated initialization and `tools/list` so clients such as ChatGPT and Claude can discover the server and its authentication requirements. Every protected tool advertises the OAuth scheme, and ChatGPT compatibility mirrors that declaration at both the MCP tool root and `_meta` while the pinned SDK lacks first-class root-level serialization.
+
+Tool execution remains fail-closed. A call without a verified caller returns an in-band `_meta["mcp/www_authenticate"]` Bearer challenge containing:
+
+- the protected-resource metadata URL;
+- the required `email` scope;
+- a machine-readable OAuth error; and
+- a short human-readable linking description.
+
+Protected-resource metadata publishes the canonical resource, Supabase authorization server, and supported scope. No timetable content is needed for discovery.
 
 ## Browser delegation API
 
-The browser delegation API accepts the user's normal Gapwise Supabase bearer token under the base verification rules above, but it does not require an OAuth `client_id` or MCP resource binding. Caller identity is always derived from the verified token; request arguments never select an account.
+The browser delegation API accepts the user's normal Gapwise Supabase bearer token after the base Supabase/issuer/subject/time validation above. It deliberately does **not** require an OAuth `client_id`, the MCP audience, or the MCP scope because it is the first-party browser path that creates/reconciles the encrypted delegated snapshot and applies queued actions.
 
-Bearer tokens are not stored by Gapwise AI.
+Conversely, OAuth-client tokens are rejected from browser-authoritative mutation endpoints. This prevents an MCP client from bypassing the queued-action/revision flow by replaying its OAuth credential against the first-party bridge.
+
+Bearer tokens are not persisted by Gapwise AI.

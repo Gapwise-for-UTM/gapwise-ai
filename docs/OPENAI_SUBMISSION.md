@@ -14,24 +14,29 @@ The infrastructure alias `https://gapwise-ai.vercel.app` is not a second OAuth r
 
 ## Domain verification
 
-When OpenAI supplies a domain-verification token, set it only in the production deployment as `GAPWISE_OPENAI_APPS_CHALLENGE_TOKEN`. The challenge route must return the token as the entire response body, with no JSON wrapper or extra text. Remove the variable after verification if OpenAI no longer requires the endpoint to remain populated.
+When OpenAI supplies a domain-verification token, set it only in production as `GAPWISE_OPENAI_APPS_CHALLENGE_TOKEN`. The challenge route must return the token as the entire response body, with no JSON wrapper or extra text. Do not invent a token before the submission flow provides one.
 
 ## Tool review assertions
 
 All tools:
 
-- identify OAuth in their MCP `_meta.securitySchemes` metadata;
+- advertise OAuth in both root-level `securitySchemes` and the compatibility `_meta.securitySchemes` mirror;
+- request only the supported minimal `email` identity scope;
 - remain discoverable before authentication;
 - return an in-band `_meta["mcp/www_authenticate"]` challenge when invoked without a valid caller;
 - derive the Gapwise user exclusively from the verified bearer token;
-- reject ordinary browser-session tokens for MCP because they lack an OAuth `client_id`;
-- reject OAuth bearer tokens that are not targeted at the canonical Gapwise MCP resource.
+- reject ordinary browser-session tokens because they lack an OAuth `client_id` and MCP audience;
+- reject OAuth bearer tokens whose `aud` does not contain exactly `https://ai.gapwise.ca/api/mcp`;
+- reject tokens missing the required granted scope;
+- declare structured output schemas as well as input schemas.
+
+The Supabase custom access-token hook grants the MCP audience only when the exact `(user_id, client_id)` was explicitly approved through Gapwise before token issuance. Registration alone is insufficient.
 
 Write tools additionally require the current snapshot revision and the corresponding explicit delegation permission. Academic course meetings cannot be mutated through the MCP surface.
 
 ## Positive reviewer test cases
 
-1. **Check connection status** — Connect a Gapwise account, invoke `get_ai_delegation_status`, and confirm the tool reports whether AI access is enabled without exposing timetable content when it is disabled.
+1. **Check connection status** — Connect a Gapwise account, invoke `get_ai_delegation_status`, and confirm the tool reports whether AI access is enabled without exposing timetable content when disabled.
 2. **Read one day** — With schedule delegation enabled, invoke `get_my_day` for a weekday represented in the user's source-backed timetable and confirm returned meetings match Gapwise exactly.
 3. **Read deterministic gap plan** — Invoke `get_my_gap_plan` for a delegated gap and confirm route status, confidence, travel/buffer timing, and recommendation reasons are preserved rather than recomputed by the model.
 4. **Queue a personal item** — With personal-item write permission enabled, read the current revision and invoke `create_personal_item`; confirm the response is a queued action rather than a direct academic schedule mutation.
@@ -39,22 +44,24 @@ Write tools additionally require the current snapshot revision and the correspon
 
 ## Negative reviewer test cases
 
-1. **Unauthenticated tool call** — Invoke any tool before connecting Gapwise. The call must fail with `isError: true` and include `_meta["mcp/www_authenticate"]`; no Gapwise data may be returned.
-2. **Stale revision write** — Read a snapshot, change the Gapwise state so the revision advances, then retry a write using the old revision. The tool must return a conflict and make no dependent assumption.
-3. **Forbidden academic mutation / missing permission** — Attempt to target an academic class with a personal-item write path, or disable the relevant write delegation before making a write. The action must be rejected rather than broadening authority.
+1. **Unauthenticated tool call** — Invoke any tool before connecting Gapwise. The call must fail with `isError: true`, include `_meta["mcp/www_authenticate"]`, and return no private Gapwise data.
+2. **Unapproved OAuth client** — Register/authenticate a client that has not been approved in Gapwise. Its token must keep the normal Supabase audience and fail the MCP audience check.
+3. **Wrong audience or missing scope** — Present a cryptographically valid token without the exact MCP audience or required scope. The MCP call must remain unauthenticated.
+4. **Stale revision write** — Read a snapshot, advance the Gapwise state, then retry a write using the old revision. The tool must return a conflict and make no dependent assumption.
+5. **Forbidden academic mutation / missing permission** — Attempt to target an academic class with a personal-item write path, or disable the relevant write delegation before making a write. The action must be rejected rather than broadening authority.
 
 ## Release checks before submission
 
-1. `npm run check` passes on the exact production commit.
-2. GitHub branch protection/status checks are green.
-3. Supabase OAuth server and dynamic registration settings are verified in the dashboard.
-4. The custom access-token hook is enabled and new OAuth tokens contain `resource: "https://ai.gapwise.ca/api/mcp"` while retaining normal Supabase claims.
-5. Both production hostnames publish protected-resource metadata whose `resource` is exactly `https://ai.gapwise.ca/api/mcp`.
-6. Unauthenticated MCP initialization and `tools/list` succeed, but unauthenticated `tools/call` returns the in-band authentication challenge.
-7. A newly issued OAuth token succeeds against the MCP endpoint; an ordinary browser token and a wrong-resource token fail.
+1. `npm run check` and CI pass on the exact production commit.
+2. Supabase Auth uses `public.gapwise_ai_access_token_hook` as the Custom Access Token Hook.
+3. Supabase OAuth Server is enabled with Gapwise `/oauth/consent` and the client-registration behavior required by the target MCP clients.
+4. New approved OAuth tokens contain `aud = "https://ai.gapwise.ca/api/mcp"`; unapproved OAuth clients and ordinary browser sessions do not.
+5. Both production hostnames publish protected-resource metadata whose `resource` is exactly `https://ai.gapwise.ca/api/mcp` and whose supported scope includes `email`.
+6. Unauthenticated MCP initialization and `tools/list` succeed; root tool definitions expose OAuth security schemes; unauthenticated `tools/call` returns the in-band challenge.
+7. A newly issued approved OAuth token succeeds against the MCP endpoint; ordinary browser, unapproved-client, wrong-audience, expired, and missing-scope tokens fail.
 8. The OpenAI domain challenge is configured only when the submission portal provides a token, and its live response body is exactly that token.
-9. OpenAI's Scan Tools step reports the intended nine tools with accurate descriptions and annotations.
-10. Complete one end-to-end connection in ChatGPT and one in Claude using non-production test data before broad launch.
+9. OpenAI's Scan Tools step reports the intended nine tools with accurate input/output schemas, descriptions, and annotations.
+10. Complete the read/write/revoke matrix in ChatGPT and Claude using non-sensitive test data before broad launch.
 
 ## Release notes template
 
