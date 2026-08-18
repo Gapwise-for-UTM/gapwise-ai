@@ -17,6 +17,14 @@ import {
   queueAction,
   readSnapshot,
 } from "@/src/delegation/service";
+import {
+  DayScheduleOutputSchema,
+  DelegationStatusOutputSchema,
+  GapContextOutputSchema,
+  PreferencesOutputSchema,
+  QueueActionOutputSchema,
+  WeekScheduleOutputSchema,
+} from "@/src/mcp/output-schemas";
 
 const revision = z.number().int().min(1).describe(
   "The current Gapwise AI snapshot revision returned by a read tool.",
@@ -82,6 +90,7 @@ const handler = createMcpHandler(
         description:
           "Check whether this Gapwise account has explicitly enabled AI access and see the current revision and permissions. Does not return timetable content.",
         inputSchema: z.object({}).strict(),
+        outputSchema: DelegationStatusOutputSchema,
         annotations: { readOnlyHint: true, openWorldHint: false },
         _meta: OPENAI_TOOL_META,
       },
@@ -109,6 +118,7 @@ const handler = createMcpHandler(
         description:
           "Return exact source-backed academic meetings, explicitly delegated personal items, and deterministic Gapwise gap assessments for one calendar date when those permissions are enabled. Never guesses missing meetings, locations, routes, or gap recommendations. Academic meetings are read-only.",
         inputSchema: z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u) }).strict(),
+        outputSchema: DayScheduleOutputSchema,
         annotations: { readOnlyHint: true, openWorldHint: false },
         _meta: OPENAI_TOOL_META,
       },
@@ -135,6 +145,7 @@ const handler = createMcpHandler(
         description:
           "Return the compact normalized Gapwise timetable for one academic term plus deterministic Gapwise gap assessments and delegated personal items when permitted. Academic meetings remain source-backed and read-only.",
         inputSchema: z.object({ term: TermSchema }).strict(),
+        outputSchema: WeekScheduleOutputSchema,
         annotations: { readOnlyHint: true, openWorldHint: false },
         _meta: OPENAI_TOOL_META,
       },
@@ -171,6 +182,7 @@ const handler = createMcpHandler(
           .refine((value) => value.endTime > value.startTime, {
             message: "endTime must be after startTime",
           }),
+        outputSchema: GapContextOutputSchema,
         annotations: { readOnlyHint: true, openWorldHint: false },
         _meta: OPENAI_TOOL_META,
       },
@@ -199,6 +211,7 @@ const handler = createMcpHandler(
         description:
           "Return only planning/routing preferences the user explicitly allowed Gapwise to share with AI.",
         inputSchema: z.object({}).strict(),
+        outputSchema: PreferencesOutputSchema,
         annotations: { readOnlyHint: true, openWorldHint: false },
         _meta: OPENAI_TOOL_META,
       },
@@ -231,6 +244,7 @@ const handler = createMcpHandler(
         inputSchema: z
           .object({ expectedRevision: revision, item: PersonalItemDraftSchema, idempotencyKey })
           .strict(),
+        outputSchema: QueueActionOutputSchema,
         annotations: {
           readOnlyHint: false,
           destructiveHint: false,
@@ -269,6 +283,7 @@ const handler = createMcpHandler(
             idempotencyKey,
           })
           .strict(),
+        outputSchema: QueueActionOutputSchema,
         annotations: {
           readOnlyHint: false,
           destructiveHint: false,
@@ -306,6 +321,7 @@ const handler = createMcpHandler(
             idempotencyKey,
           })
           .strict(),
+        outputSchema: QueueActionOutputSchema,
         annotations: {
           readOnlyHint: false,
           destructiveHint: true,
@@ -343,6 +359,7 @@ const handler = createMcpHandler(
             idempotencyKey,
           })
           .strict(),
+        outputSchema: QueueActionOutputSchema,
         annotations: {
           readOnlyHint: false,
           destructiveHint: false,
