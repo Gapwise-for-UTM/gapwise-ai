@@ -1,0 +1,75 @@
+import { describe, expect, it } from "vitest";
+import { AiActionSchema, AiPermissionsSchema, AiSnapshotSchema } from "@/src/domain/schemas";
+
+const permissions = {
+  readSchedule: true as const,
+  readPersonal: true,
+  writePersonal: true,
+  readGapPreferences: true,
+  writeGapPreferences: true,
+  readRoutingPreferences: true,
+};
+
+const meeting = {
+  id: "CSC110-LEC0101-Monday-600",
+  courseCode: "CSC110Y5",
+  activityType: "LEC" as const,
+  sectionCode: "LEC0101",
+  courseName: "Foundations of Computer Science",
+  startTime: 600,
+  endTime: 660,
+  weekday: "Monday" as const,
+  buildingCode: "MN",
+  room: "1210",
+  term: "Fall" as const,
+  locationUnknown: false,
+  locationType: "physical" as const,
+};
+
+describe("delegation schemas", () => {
+  it("accepts a minimized source-backed snapshot", () => {
+    const result = AiSnapshotSchema.safeParse({
+      schemaVersion: 1,
+      revision: 1,
+      generatedAt: "2026-08-18T16:30:00.000Z",
+      permissions,
+      schedule: [meeting],
+      personalItems: [],
+      gapPreferences: null,
+      routingPreferences: null,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects undeclared meeting fields such as notes", () => {
+    const result = AiSnapshotSchema.safeParse({
+      schemaVersion: 1,
+      revision: 1,
+      generatedAt: "2026-08-18T16:30:00.000Z",
+      permissions,
+      schedule: [{ ...meeting, notes: "do not delegate this" }],
+      personalItems: [],
+      gapPreferences: null,
+      routingPreferences: null,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("requires read permission when write permission is enabled", () => {
+    expect(
+      AiPermissionsSchema.safeParse({ ...permissions, readPersonal: false, writePersonal: true }).success,
+    ).toBe(false);
+  });
+
+  it("has no action kind capable of editing academic meetings", () => {
+    expect(
+      AiActionSchema.safeParse({
+        schemaVersion: 1,
+        kind: "update_academic_meeting",
+        expectedRevision: 1,
+        meetingId: meeting.id,
+        patch: { startTime: 700 },
+      }).success,
+    ).toBe(false);
+  });
+});
