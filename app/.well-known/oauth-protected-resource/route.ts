@@ -1,0 +1,13 @@
+import {
+  metadataCorsOptionsRequestHandler,
+  protectedResourceHandler,
+} from "mcp-handler";
+import { supabaseIssuer } from "@/src/config";
+
+export async function GET(request: Request) {
+  return protectedResourceHandler({ authServerUrls: [supabaseIssuer()] })(request);
+}
+
+export async function OPTIONS(request: Request) {
+  return metadataCorsOptionsRequestHandler()(request);
+}
