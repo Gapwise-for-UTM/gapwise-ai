@@ -7,7 +7,8 @@ GAPWISE_SUPABASE_URL=https://olrtvbblxbgcxbhvujaw.supabase.co
 GAPWISE_SUPABASE_PUBLISHABLE_KEY=...
 GAPWISE_AI_DATA_KEY=... # exactly 32 random bytes, Base64/Base64url encoded
 GAPWISE_APP_ORIGIN=https://gapwise.ca
-GAPWISE_AI_ORIGIN=https://ai.gapwise.ca # set after the custom domain is verified
+# Optional override for alternate deployments:
+# GAPWISE_AI_ORIGIN=https://ai.gapwise.ca
 ```
 
 ## Requirements
@@ -36,13 +37,13 @@ https://gapwise.ca
 
 ### `GAPWISE_AI_ORIGIN`
 
-The externally visible origin used when publishing OAuth protected-resource metadata. For the public production service, prefer the first-party hostname:
+Optional explicit externally visible origin for OAuth protected-resource metadata. The canonical public production service is:
 
 ```text
 https://ai.gapwise.ca
 ```
 
-Do not set this value until the hostname is attached to the Vercel project, DNS is verified, HTTPS is active, and `/api/health` succeeds on that hostname. Until then, the deployment can continue using its Vercel production alias.
+Production requests arriving through `ai.gapwise.ca` or the infrastructure fallback `gapwise-ai.vercel.app` are canonicalized to `https://ai.gapwise.ca/api/mcp` even if this optional variable is unset. Set the variable only when an alternate deployment needs to override that behavior.
 
 ## Public-variable rule
 
