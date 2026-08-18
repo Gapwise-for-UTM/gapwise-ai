@@ -2,16 +2,17 @@ import {
   metadataCorsOptionsRequestHandler,
   protectedResourceHandler,
 } from "mcp-handler";
-import { supabaseIssuer } from "@/src/config";
+import { canonicalMcpResourceUrl, getRuntimeConfig, supabaseIssuer } from "@/src/config";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  // RFC 9728 identifies the protected resource itself, not the metadata route.
-  // Construct the MCP URL explicitly so proxy/share query parameters can never
-  // leak into OAuth resource metadata.
-  const resourceUrl = new URL("/api/mcp", request.url).toString();
-  return protectedResourceHandler({ authServerUrls: [supabaseIssuer()], resourceUrl })(request);
+  // RFC 9728 identifies the protected resource itself, not this metadata route.
+  // Production aliases deliberately converge on the first-party Gapwise hostname
+  // so OAuth clients never persist a temporary Vercel alias as the resource ID.
+  const config = getRuntimeConfig();
+  const resourceUrl = canonicalMcpResourceUrl(request.url, config.aiOrigin);
+  return protectedResourceHandler({ authServerUrls: [supabaseIssuer(config)], resourceUrl })(request);
 }
 
 export async function OPTIONS() {

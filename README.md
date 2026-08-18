@@ -58,18 +58,24 @@ For the full trust-boundary and data-flow description, see [`docs/ARCHITECTURE.m
 
 ## MCP surface
 
-Current production bootstrap endpoint:
+Canonical production endpoint:
 
 ```text
-https://gapwise-ai.vercel.app/api/mcp
+https://ai.gapwise.ca/api/mcp
 ```
 
-A first-party custom hostname under `gapwise.ca` is the intended public endpoint. The service origin is configurable through `GAPWISE_AI_ORIGIN`, so the MCP protocol and authorization model do not depend on a Vercel hostname.
+The Vercel project may continue to answer on its platform alias for operational continuity, but production OAuth protected-resource metadata converges on the first-party `ai.gapwise.ca` resource identifier.
 
 OAuth protected-resource metadata is available at:
 
 ```text
-https://gapwise-ai.vercel.app/.well-known/oauth-protected-resource
+https://ai.gapwise.ca/.well-known/oauth-protected-resource
+```
+
+Health/status endpoint:
+
+```text
+https://ai.gapwise.ca/api/health
 ```
 
 ### Read tools

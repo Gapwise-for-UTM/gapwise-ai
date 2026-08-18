@@ -13,6 +13,9 @@ const REQUIRED = [
   "GAPWISE_APP_ORIGIN",
 ] as const;
 
+const CANONICAL_AI_ORIGIN = "https://ai.gapwise.ca";
+const PRODUCTION_AI_HOSTS = new Set(["ai.gapwise.ca", "gapwise-ai.vercel.app"]);
+
 function normalizedOrigin(value: string, name: string): string {
   let url: URL;
   try {
@@ -59,6 +62,14 @@ export function getRuntimeConfig(): RuntimeConfig {
     gapwiseAppOrigin,
     aiOrigin,
   };
+}
+
+export function canonicalMcpResourceUrl(requestUrl: string, aiOrigin: string | null): string {
+  const request = new URL(requestUrl);
+  const origin =
+    aiOrigin ??
+    (PRODUCTION_AI_HOSTS.has(request.hostname) ? CANONICAL_AI_ORIGIN : request.origin);
+  return new URL("/api/mcp", origin).toString();
 }
 
 export function supabaseIssuer(config = getRuntimeConfig()): string {
