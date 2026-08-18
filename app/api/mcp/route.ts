@@ -22,6 +22,12 @@ import {
   readSnapshot,
 } from "@/src/delegation/service";
 import {
+  formatDaySchedule,
+  formatGapContext,
+  formatPreferences,
+  formatWeekSchedule,
+} from "@/src/mcp/formatters";
+import {
   DayScheduleOutputSchema,
   DelegationStatusOutputSchema,
   GapContextOutputSchema,
@@ -120,7 +126,7 @@ const handler = createMcpHandler(
       {
         title: "Get my Gapwise day",
         description:
-          "Return exact source-backed academic meetings, explicitly delegated personal items, and deterministic Gapwise gap assessments for one calendar date when those permissions are enabled. Never guesses missing meetings, locations, routes, or gap recommendations. Academic meetings are read-only.",
+          "Return exact source-backed academic meetings, explicitly delegated personal items, and deterministic Gapwise gap assessments for one calendar date when those permissions are enabled. The text result contains the actual meeting/course/section/time/location facts as well as structured output. Never guesses missing meetings, locations, routes, or gap recommendations. Academic meetings are read-only.",
         inputSchema: z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u) }).strict(),
         outputSchema: DayScheduleOutputSchema,
         annotations: { readOnlyHint: true, openWorldHint: false },
@@ -132,10 +138,7 @@ const handler = createMcpHandler(
         try {
           const snapshot = await readSnapshot(caller);
           const value = daySchedule(snapshot, date);
-          return ok(
-            `Gapwise returned ${value.meetings.length} academic meeting(s), ${value.personalItems.length} delegated personal item(s), and ${value.gapPlans.length} deterministic gap plan(s) for ${date}.`,
-            value,
-          );
+          return ok(formatDaySchedule(value), value);
         } catch (error) {
           return failure(error);
         }
@@ -147,7 +150,7 @@ const handler = createMcpHandler(
       {
         title: "Get my Gapwise week",
         description:
-          "Return the compact normalized Gapwise timetable for one academic term plus deterministic Gapwise gap assessments and delegated personal items when permitted. Academic meetings remain source-backed and read-only.",
+          "Return the normalized Gapwise timetable for one academic term plus deterministic Gapwise gap assessments and delegated personal items when permitted. The text result itemizes the actual course codes, sections, times and locations so MCP clients that do not surface structuredContent still receive the timetable. Academic meetings remain source-backed and read-only.",
         inputSchema: z.object({ term: TermSchema }).strict(),
         outputSchema: WeekScheduleOutputSchema,
         annotations: { readOnlyHint: true, openWorldHint: false },
@@ -159,10 +162,7 @@ const handler = createMcpHandler(
         try {
           const snapshot = await readSnapshot(caller);
           const value = weekSchedule(snapshot, term);
-          return ok(
-            `Gapwise returned ${value.meetings.length} academic meeting(s), ${value.personalItems.length} delegated personal item(s), and ${value.gapPlans.length} deterministic gap plan(s) for ${term}.`,
-            value,
-          );
+          return ok(formatWeekSchedule(value), value);
         } catch (error) {
           return failure(error);
         }
@@ -174,7 +174,7 @@ const handler = createMcpHandler(
       {
         title: "Get my Gapwise gap plan",
         description:
-          "Return Gapwise's precomputed deterministic assessment for an exact delegated gap when gap-plan sharing is enabled. The assessment preserves Gapwise routing truth, confidence, travel/buffer time, leave-by/arrival time, ranked recommendations, reasons, tags, and timeline. If no matching delegated plan exists, say so rather than inventing one.",
+          "Return Gapwise's precomputed deterministic assessment for an exact delegated gap when gap-plan sharing is enabled. The text result includes the actual boundaries, recommendation, route status/confidence, travel/buffer time, leave-by/arrival time and shared preferences as well as structured output. If no matching delegated plan exists, say so rather than inventing one.",
         inputSchema: z
           .object({
             term: TermSchema,
@@ -196,12 +196,7 @@ const handler = createMcpHandler(
         try {
           const snapshot = await readSnapshot(caller);
           const value = gapContext(snapshot, args);
-          return ok(
-            value.gapPlan
-              ? "Gapwise returned its deterministic gap assessment for this exact window. Treat the embedded route status/confidence and recommendation reasons as authoritative Gapwise output."
-              : `Gapwise did not return a deterministic assessment for this window (${value.planningStatus}). Do not invent route or usable-time facts.`,
-            value,
-          );
+          return ok(formatGapContext(value), value);
         } catch (error) {
           return failure(error);
         }
@@ -213,7 +208,7 @@ const handler = createMcpHandler(
       {
         title: "Get my delegated Gapwise preferences",
         description:
-          "Return only planning/routing preferences the user explicitly allowed Gapwise to share with AI.",
+          "Return only planning/routing preferences the user explicitly allowed Gapwise to share with AI. The readable text and structured output contain the same permission-filtered facts.",
         inputSchema: z.object({}).strict(),
         outputSchema: PreferencesOutputSchema,
         annotations: { readOnlyHint: true, openWorldHint: false },
@@ -232,7 +227,7 @@ const handler = createMcpHandler(
               ? snapshot.routingPreferences
               : null,
           };
-          return ok("Gapwise returned the currently delegated AI planning preferences.", value);
+          return ok(formatPreferences(value), value);
         } catch (error) {
           return failure(error);
         }
@@ -394,7 +389,7 @@ const handler = createMcpHandler(
     serverInfo: { name: "gapwise-ai", version: "0.1.0" },
     capabilities: { tools: {} },
     instructions:
-      "Use Gapwise tools as the source of truth for the user's delegated timetable and gap assessments. Never invent missing classes, rooms, routes, gap-plan facts, or write permissions. Academic meetings are read-only. When a delegated deterministic gap assessment exists, preserve its route status/confidence and treat its travel/buffer/leave-by/recommendation fields as authoritative Gapwise output. After a write is queued, read again before making dependent changes because Gapwise applies queued actions against revisions.",
+      "Use Gapwise tools as the source of truth for the user's delegated timetable and gap assessments. Read-tool text content deliberately includes the same essential timetable/gap facts as structuredContent for cross-client compatibility; use those returned facts directly instead of treating a count summary as the full result. Never invent missing classes, rooms, routes, gap-plan facts, or write permissions. Academic meetings are read-only. When a delegated deterministic gap assessment exists, preserve its route status/confidence and treat its travel/buffer/leave-by/recommendation fields as authoritative Gapwise output. After a write is queued, read again before making dependent changes because Gapwise applies queued actions against revisions.",
     verboseLogs: false,
   },
 );
