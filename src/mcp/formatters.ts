@@ -1,11 +1,17 @@
+import type { z } from "zod";
 import type { AiSnapshot, PersonalItem } from "@/src/domain/schemas";
-import type { daySchedule, gapContext, weekSchedule } from "@/src/domain/schedule";
+import {
+  DayScheduleOutputSchema,
+  GapContextOutputSchema,
+  WeekScheduleOutputSchema,
+} from "@/src/mcp/output-schemas";
 
-type DaySchedule = ReturnType<typeof daySchedule>;
-type WeekSchedule = ReturnType<typeof weekSchedule>;
-type GapContext = ReturnType<typeof gapContext>;
+type DaySchedule = z.infer<typeof DayScheduleOutputSchema>;
+type WeekSchedule = z.infer<typeof WeekScheduleOutputSchema>;
+type GapContext = z.infer<typeof GapContextOutputSchema>;
 type Meeting = AiSnapshot["schedule"][number];
 type GapPlan = AiSnapshot["gapPlans"][number];
+type FixedPersonalItem = Extract<PersonalItem, { flexibility: { kind: "fixed" } }>;
 
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] as const;
 
@@ -14,6 +20,10 @@ function clock(minutes: number): string {
   const hour = Math.floor(normalized / 60);
   const minute = normalized % 60;
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function isFixedPersonal(item: PersonalItem): item is FixedPersonalItem {
+  return item.flexibility.kind === "fixed";
 }
 
 function locationForMeeting(meeting: Meeting): string {
@@ -31,7 +41,7 @@ function meetingLine(meeting: Meeting): string {
 
 function personalItemLine(item: PersonalItem): string {
   const location = [item.locationBuildingCode, item.locationRoom].filter(Boolean).join(" ") || item.locationText || "No location";
-  if (item.flexibility.kind === "fixed") {
+  if (isFixedPersonal(item)) {
     return `- ${clock(item.startTime)}–${clock(item.endTime)} ${item.title} [${item.category}] — ${location}`;
   }
   const window =
