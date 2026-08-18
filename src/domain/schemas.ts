@@ -143,11 +143,97 @@ export const RoutingPreferencesSchema = z
   })
   .strict();
 
+const GapActionSchema = z.enum([
+  "tight-transition",
+  "quick-reset",
+  "focus-sprint",
+  "meal-window",
+  "study-block",
+  "deep-work-block",
+  "flexible-long-gap",
+  "leave-campus-candidate",
+  "go-home",
+  "location-dependent",
+]);
+const GapTagSchema = z.enum([
+  "same-room",
+  "same-building",
+  "nearby-route",
+  "lunch-time",
+  "route-verified",
+  "route-estimated",
+  "route-unavailable",
+  "location-unknown",
+  "high-transition-risk",
+  "indoor-route",
+  "step-free-route",
+  "good-for-commuting",
+]);
+const GapTimelineSchema = z
+  .object({
+    kind: z.enum(["setup", "activity", "travel", "buffer", "flex"]),
+    label: z.string().min(1).max(240),
+    minutes: z.number().int().min(0).max(24 * 60),
+  })
+  .strict();
+const GapRecommendationSchema = z
+  .object({
+    id: z.string().min(1).max(240),
+    action: GapActionSchema,
+    title: z.string().min(1).max(240),
+    summary: z.string().min(1).max(1000),
+    score: z.number().finite(),
+    activityMinutes: z.number().int().min(0).max(24 * 60),
+    reasons: z.array(z.string().max(1000)).max(16),
+    tags: z.array(GapTagSchema).max(16),
+    timeline: z.array(GapTimelineSchema).max(16),
+  })
+  .strict();
+const GapAssessmentSchema = z
+  .object({
+    primary: GapRecommendationSchema,
+    alternatives: z.array(GapRecommendationSchema).max(2),
+    confidence: z.number().min(0).max(1),
+    confidenceLabel: z.enum(["high", "medium", "low"]),
+    travelMinutes: z.number().int().min(0).max(24 * 60).nullable(),
+    bufferMinutes: z.number().int().min(0).max(24 * 60),
+    leaveByMinutes: z.number().int().min(-24 * 60).max(48 * 60),
+    arrivalMinutes: z.number().int().min(-24 * 60).max(48 * 60).nullable(),
+    fallback: z.boolean(),
+    routeStatus: z.enum(["routed", "approximate", "same-room", "unavailable"]),
+    routeAccuracy: z.enum([
+      "Verified indoor + outdoor route",
+      "Verified outdoor route, indoor estimate",
+      "Mapped campus path, indoor estimate",
+      "Approximate building-to-building estimate",
+      "Location unavailable",
+    ]),
+    warnings: z.array(z.string().max(1000)).max(24),
+  })
+  .strict();
+export const GapPlanSchema = z
+  .object({
+    id: z.string().min(1).max(500),
+    term: TermSchema,
+    weekday: WeekdaySchema,
+    startTime: minute,
+    endTime: minute,
+    durationMinutes: z.number().int().min(1).max(24 * 60),
+    previousMeetingId: shortText,
+    nextMeetingId: shortText,
+    assessment: GapAssessmentSchema,
+  })
+  .strict()
+  .refine((gap) => gap.endTime > gap.startTime && gap.durationMinutes === gap.endTime - gap.startTime, {
+    message: "Gap plan timing is inconsistent.",
+  });
+
 export const AiPermissionsSchema = z
   .object({
     readSchedule: z.literal(true),
     readPersonal: z.boolean(),
     writePersonal: z.boolean(),
+    readGapPlans: z.boolean(),
     readGapPreferences: z.boolean(),
     writeGapPreferences: z.boolean(),
     readRoutingPreferences: z.boolean(),
@@ -174,6 +260,7 @@ export const AiSnapshotSchema = z
     permissions: AiPermissionsSchema,
     schedule: z.array(MeetingSchema).max(400),
     personalItems: z.array(PersonalItemSchema).max(200),
+    gapPlans: z.array(GapPlanSchema).max(200),
     gapPreferences: GapPreferencesSchema.nullable(),
     routingPreferences: RoutingPreferencesSchema.nullable(),
   })
@@ -181,6 +268,9 @@ export const AiSnapshotSchema = z
   .superRefine((snapshot, ctx) => {
     if (!snapshot.permissions.readPersonal && snapshot.personalItems.length > 0) {
       ctx.addIssue({ code: "custom", path: ["personalItems"], message: "Personal access is disabled." });
+    }
+    if (!snapshot.permissions.readGapPlans && snapshot.gapPlans.length > 0) {
+      ctx.addIssue({ code: "custom", path: ["gapPlans"], message: "Gap-plan access is disabled." });
     }
     if (!snapshot.permissions.readGapPreferences && snapshot.gapPreferences !== null) {
       ctx.addIssue({
