@@ -109,7 +109,7 @@ const FlexiblePersonalItemSchema = z
 
 export const PersonalItemSchema = z.union([FixedPersonalItemSchema, FlexiblePersonalItemSchema]);
 
-export const GapPreferencesSchema = z
+const GapPreferencesBaseSchema = z
   .object({
     setupMinutes: z.number().int().min(0).max(120),
     packUpMinutes: z.number().int().min(0).max(120),
@@ -122,10 +122,12 @@ export const GapPreferencesSchema = z
     homeTurnaroundMinutes: z.number().int().min(0).max(180),
     riskTolerance: z.enum(["low", "medium", "high"]),
   })
-  .strict()
-  .refine((value) => value.lunchWindowEnd > value.lunchWindowStart, {
-    message: "Lunch window is invalid.",
-  });
+  .strict();
+
+export const GapPreferencesSchema = GapPreferencesBaseSchema.refine(
+  (value) => value.lunchWindowEnd > value.lunchWindowStart,
+  { message: "Lunch window is invalid." },
+);
 
 export const RoutingPreferencesSchema = z
   .object({
@@ -271,7 +273,7 @@ export const PersonalItemPatchSchema = z
   .strict()
   .refine((value) => Object.keys(value).length > 0, { message: "At least one change is required." });
 
-export const GapPreferencesPatchSchema = GapPreferencesSchema.partial()
+export const GapPreferencesPatchSchema = GapPreferencesBaseSchema.partial()
   .strict()
   .refine((value) => Object.keys(value).length > 0, { message: "At least one change is required." });
 
