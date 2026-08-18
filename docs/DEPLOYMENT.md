@@ -106,6 +106,8 @@ An unauthenticated MCP request must return HTTP 401 with a `WWW-Authenticate` ch
 
 ## Release verification
 
+Production deployments are built from the tested `main` branch. Do not promote an intermediate feature-branch Preview deployment as a substitute for the merged `main` commit unless the commit SHA is identical.
+
 Before treating any deployment as production-ready, confirm:
 
 - the deployed commit is known and CI-clean;
