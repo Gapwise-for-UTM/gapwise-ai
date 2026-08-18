@@ -12,6 +12,7 @@ type WeekSchedule = z.infer<typeof WeekScheduleOutputSchema>;
 type GapContext = z.infer<typeof GapContextOutputSchema>;
 type Meeting = AiSnapshot["schedule"][number];
 type GapPlan = AiSnapshot["gapPlans"][number];
+type GapRecommendation = GapPlan["assessment"]["primary"];
 type FixedPersonalItem = Extract<PersonalItem, { flexibility: { kind: "fixed" } }>;
 
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] as const;
@@ -35,10 +36,32 @@ function locationForMeeting(meeting: Meeting): string {
   return meeting.locationUnknown ? "Location unknown" : "Location not provided";
 }
 
+function recurrenceForMeeting(meeting: Meeting): string {
+  const details: string[] = [];
+  if (meeting.dateRange) {
+    details.push(
+      `active ${meeting.dateRange.startDate}–${meeting.dateRange.endDate ?? "open-ended"}`,
+    );
+    details.push(
+      meeting.recurrenceIntervalWeeks && meeting.recurrenceIntervalWeeks > 1
+        ? `every ${meeting.recurrenceIntervalWeeks} weeks from the start date`
+        : "weekly on this weekday",
+    );
+  } else if (meeting.recurrenceIntervalWeeks && meeting.recurrenceIntervalWeeks > 1) {
+    details.push(`every ${meeting.recurrenceIntervalWeeks} weeks`);
+  }
+  if (meeting.excludedDates?.length) {
+    details.push(`excluded dates: ${meeting.excludedDates.join(", ")}`);
+  }
+  return details.length ? ` [${details.join("; ")}]` : "";
+}
+
 function meetingLine(meeting: Meeting): string {
   const name =
-    meeting.courseName && meeting.courseName !== meeting.courseCode ? ` — ${meeting.courseName}` : "";
-  return `- ${clock(meeting.startTime)}–${clock(meeting.endTime)} ${meeting.courseCode} ${meeting.sectionCode} (${meeting.activityType})${name} — ${locationForMeeting(meeting)}`;
+    meeting.courseName && meeting.courseName !== meeting.courseCode
+      ? ` — ${meeting.courseName}`
+      : "";
+  return `- ${clock(meeting.startTime)}–${clock(meeting.endTime)} ${meeting.courseCode} ${meeting.sectionCode} (${meeting.activityType})${name} — ${locationForMeeting(meeting)}${recurrenceForMeeting(meeting)}`;
 }
 
 function personalItemLine(item: PersonalItem): string {
@@ -56,28 +79,46 @@ function personalItemLine(item: PersonalItem): string {
   return `- ${item.title} [${item.category}] — ${item.flexibility.durationMinutes} min within ${window} — ${location}`;
 }
 
+function recommendationDetails(label: string, recommendation: GapRecommendation): string[] {
+  const lines = [
+    `  ${label}: ${recommendation.title} [${recommendation.action}] — ${recommendation.summary}`,
+    `  ${label} metrics: activity ${recommendation.activityMinutes} min; score ${recommendation.score}.`,
+  ];
+  if (recommendation.reasons.length) {
+    lines.push(`  ${label} reasons: ${recommendation.reasons.join(" ")}`);
+  }
+  if (recommendation.tags.length) {
+    lines.push(`  ${label} tags: ${recommendation.tags.join(", ")}.`);
+  }
+  if (recommendation.timeline.length) {
+    lines.push(
+      `  ${label} timeline: ${recommendation.timeline
+        .map((item) => `${item.label}=${item.minutes} min (${item.kind})`)
+        .join("; ")}.`,
+    );
+  }
+  return lines;
+}
+
 function gapPlanLines(plan: GapPlan): string[] {
   const assessment = plan.assessment;
-  const primary = assessment.primary;
   const route = `${assessment.routeStatus}, ${assessment.routeAccuracy}`;
   const timing = [
-    assessment.travelMinutes === null ? null : `travel ${assessment.travelMinutes} min`,
+    assessment.travelMinutes === null ? "travel unavailable" : `travel ${assessment.travelMinutes} min`,
     `buffer ${assessment.bufferMinutes} min`,
     `leave by ${clock(assessment.leaveByMinutes)}`,
-    assessment.arrivalMinutes === null ? null : `arrive ${clock(assessment.arrivalMinutes)}`,
-  ]
-    .filter(Boolean)
-    .join(", ");
+    assessment.arrivalMinutes === null ? "arrival unavailable" : `arrive ${clock(assessment.arrivalMinutes)}`,
+  ].join(", ");
   const lines = [
-    `- ${clock(plan.startTime)}–${clock(plan.endTime)} (${plan.durationMinutes} min): ${primary.title} — ${primary.summary}`,
-    `  Route: ${route}; confidence ${assessment.confidenceLabel} (${Math.round(assessment.confidence * 100)}%); ${timing}.`,
+    `- Gap ${clock(plan.startTime)}–${clock(plan.endTime)} (${plan.durationMinutes} min).`,
+    ...recommendationDetails("Primary", assessment.primary),
+    `  Route: ${route}; confidence ${assessment.confidenceLabel} (${Math.round(assessment.confidence * 100)}%); fallback ${assessment.fallback ? "yes" : "no"}; ${timing}.`,
   ];
-  if (primary.reasons.length) lines.push(`  Why: ${primary.reasons.join(" ")}`);
-  if (assessment.warnings.length) lines.push(`  Warnings: ${assessment.warnings.join(" ")}`);
-  if (assessment.alternatives.length) {
-    lines.push(
-      `  Alternatives: ${assessment.alternatives.map((item) => `${item.title} (${item.activityMinutes} min)`).join("; ")}.`,
-    );
+  if (assessment.warnings.length) {
+    lines.push(`  Warnings: ${assessment.warnings.join(" ")}`);
+  }
+  for (const [index, alternative] of assessment.alternatives.entries()) {
+    lines.push(...recommendationDetails(`Alternative ${index + 1}`, alternative));
   }
   return lines;
 }
@@ -108,7 +149,9 @@ export function formatDaySchedule(value: DaySchedule): string {
 }
 
 export function formatWeekSchedule(value: WeekSchedule): string {
-  const lines = [`Gapwise ${value.term} timetable — revision ${value.revision}.`];
+  const lines = [
+    `Gapwise ${value.term} timetable — revision ${value.revision}. Recurrence/date-range facts and exclusions are included per academic meeting when source-backed data provides them.`,
+  ];
   for (const weekday of WEEKDAYS) {
     const meetings = value.meetings.filter((meeting) => meeting.weekday === weekday);
     const personal = value.personalItems.filter((item) => item.weekday === weekday);
