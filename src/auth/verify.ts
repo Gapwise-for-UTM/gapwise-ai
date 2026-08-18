@@ -23,6 +23,11 @@ function jwtClaims(token: string): JwtClaims | null {
   }
 }
 
+export function oauthClientIdFromAccessToken(token: string): string | null {
+  const value = jwtClaims(token)?.client_id;
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
 export async function verifySupabaseAccessToken(token: string): Promise<VerifiedCaller | null> {
   if (!token || token.length > 16_384) return null;
   const config = getRuntimeConfig();
@@ -60,12 +65,12 @@ export async function verifyMcpToken(
 
   // MCP access must come from a Supabase OAuth client token. Ordinary Gapwise
   // browser sessions use the browser delegation API and do not carry client_id.
-  const claims = jwtClaims(bearerToken);
-  if (typeof claims?.client_id !== "string" || claims.client_id.length < 1) return undefined;
+  const clientId = oauthClientIdFromAccessToken(bearerToken);
+  if (!clientId) return undefined;
 
   return {
     token: bearerToken,
-    clientId: claims.client_id,
+    clientId,
     scopes: [],
     expiresAt: caller.expiresAt,
     extra: { userId: caller.userId },
