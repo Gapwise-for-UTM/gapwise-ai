@@ -1,20 +1,29 @@
-import {
-  metadataCorsOptionsRequestHandler,
-  protectedResourceHandler,
-} from "mcp-handler";
 import { canonicalMcpResourceUrl, getRuntimeConfig, supabaseIssuer } from "@/src/config";
+import { MCP_REQUIRED_SCOPES } from "@/src/auth/mcp";
 
 export const dynamic = "force-dynamic";
 
+const METADATA_HEADERS = {
+  "Access-Control-Allow-Headers": "Authorization, Content-Type, MCP-Protocol-Version",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Origin": "*",
+  "Cache-Control": "public, max-age=300",
+  "Content-Type": "application/json",
+  "X-Content-Type-Options": "nosniff",
+};
+
 export async function GET(request: Request) {
-  // RFC 9728 identifies the protected resource itself, not this metadata route.
-  // Production aliases deliberately converge on the first-party Gapwise hostname
-  // so OAuth clients never persist a temporary Vercel alias as the resource ID.
   const config = getRuntimeConfig();
-  const resourceUrl = canonicalMcpResourceUrl(request.url, config.aiOrigin);
-  return protectedResourceHandler({ authServerUrls: [supabaseIssuer(config)], resourceUrl })(request);
+  return new Response(
+    JSON.stringify({
+      resource: canonicalMcpResourceUrl(request.url, config.aiOrigin),
+      authorization_servers: [supabaseIssuer(config)],
+      scopes_supported: [...MCP_REQUIRED_SCOPES],
+    }),
+    { status: 200, headers: METADATA_HEADERS },
+  );
 }
 
 export async function OPTIONS() {
-  return metadataCorsOptionsRequestHandler()();
+  return new Response(null, { status: 204, headers: METADATA_HEADERS });
 }

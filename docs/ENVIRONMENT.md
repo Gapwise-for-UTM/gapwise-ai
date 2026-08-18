@@ -9,6 +9,8 @@ GAPWISE_AI_DATA_KEY=... # exactly 32 random bytes, Base64/Base64url encoded
 GAPWISE_APP_ORIGIN=https://gapwise.ca
 # Optional override for alternate deployments:
 # GAPWISE_AI_ORIGIN=https://ai.gapwise.ca
+# Optional OpenAI Apps domain-verification token:
+# GAPWISE_OPENAI_APPS_CHALLENGE_TOKEN=...
 ```
 
 ## Requirements
@@ -44,6 +46,16 @@ https://ai.gapwise.ca
 ```
 
 Production requests arriving through `ai.gapwise.ca` or the infrastructure fallback `gapwise-ai.vercel.app` are canonicalized to `https://ai.gapwise.ca/api/mcp` even if this optional variable is unset. Set the variable only when an alternate deployment needs to override that behavior.
+
+### `GAPWISE_OPENAI_APPS_CHALLENGE_TOKEN`
+
+Optional, temporary value supplied by the OpenAI app submission flow when verifying ownership of `ai.gapwise.ca`. When present, the service exposes the token verbatim at:
+
+```text
+https://ai.gapwise.ca/.well-known/openai-apps-challenge
+```
+
+The route returns `404` while the variable is absent or malformed. Never commit the verification token to source control; set it as a server-side deployment variable and remove it when it is no longer needed.
 
 ## Public-variable rule
 

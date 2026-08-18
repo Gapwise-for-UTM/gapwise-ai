@@ -3,6 +3,11 @@ import { z } from "zod";
 import type { VerifiedCaller } from "@/src/auth/verify";
 import { verifyMcpToken } from "@/src/auth/verify";
 import {
+  installToolSecuritySchemeProjection,
+  mcpAuthenticationRequired,
+  OPENAI_TOOL_META,
+} from "@/src/auth/mcp";
+import {
   GapPreferencesPatchSchema,
   PersonalItemDraftSchema,
   PersonalItemPatchSchema,
@@ -16,6 +21,14 @@ import {
   queueAction,
   readSnapshot,
 } from "@/src/delegation/service";
+import {
+  DayScheduleOutputSchema,
+  DelegationStatusOutputSchema,
+  GapContextOutputSchema,
+  PreferencesOutputSchema,
+  QueueActionOutputSchema,
+  WeekScheduleOutputSchema,
+} from "@/src/mcp/output-schemas";
 
 const revision = z.number().int().min(1).describe(
   "The current Gapwise AI snapshot revision returned by a read tool.",
@@ -27,7 +40,7 @@ const idempotencyKey = z
   .optional()
   .describe("Optional stable retry key. Reuse the same value when retrying the exact same requested change.");
 
-function callerFromContext(ctx: {
+type ToolContext = {
   http?: {
     authInfo?: {
       token: string;
@@ -36,12 +49,12 @@ function callerFromContext(ctx: {
       extra?: Record<string, unknown>;
     };
   };
-}): VerifiedCaller {
+};
+
+function callerFromContext(ctx: ToolContext): VerifiedCaller | null {
   const auth = ctx.http?.authInfo;
   const userId = auth?.extra?.["userId"];
-  if (!auth?.token || !auth.expiresAt || typeof userId !== "string") {
-    throw new Error("Authenticated caller context is missing.");
-  }
+  if (!auth?.token || !auth.expiresAt || typeof userId !== "string") return null;
   return { userId, accessToken: auth.token, expiresAt: auth.expiresAt };
 }
 
@@ -81,11 +94,15 @@ const handler = createMcpHandler(
         description:
           "Check whether this Gapwise account has explicitly enabled AI access and see the current revision and permissions. Does not return timetable content.",
         inputSchema: z.object({}).strict(),
+        outputSchema: DelegationStatusOutputSchema,
         annotations: { readOnlyHint: true, openWorldHint: false },
+        _meta: OPENAI_TOOL_META,
       },
       async (_args, ctx) => {
+        const caller = callerFromContext(ctx);
+        if (!caller) return mcpAuthenticationRequired();
         try {
-          const value = await delegationStatus(callerFromContext(ctx));
+          const value = await delegationStatus(caller);
           return ok(
             value.enabled
               ? `Gapwise AI is enabled at revision ${value.revision}.`
@@ -105,11 +122,15 @@ const handler = createMcpHandler(
         description:
           "Return exact source-backed academic meetings, explicitly delegated personal items, and deterministic Gapwise gap assessments for one calendar date when those permissions are enabled. Never guesses missing meetings, locations, routes, or gap recommendations. Academic meetings are read-only.",
         inputSchema: z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u) }).strict(),
+        outputSchema: DayScheduleOutputSchema,
         annotations: { readOnlyHint: true, openWorldHint: false },
+        _meta: OPENAI_TOOL_META,
       },
       async ({ date }, ctx) => {
+        const caller = callerFromContext(ctx);
+        if (!caller) return mcpAuthenticationRequired();
         try {
-          const snapshot = await readSnapshot(callerFromContext(ctx));
+          const snapshot = await readSnapshot(caller);
           const value = daySchedule(snapshot, date);
           return ok(
             `Gapwise returned ${value.meetings.length} academic meeting(s), ${value.personalItems.length} delegated personal item(s), and ${value.gapPlans.length} deterministic gap plan(s) for ${date}.`,
@@ -128,11 +149,15 @@ const handler = createMcpHandler(
         description:
           "Return the compact normalized Gapwise timetable for one academic term plus deterministic Gapwise gap assessments and delegated personal items when permitted. Academic meetings remain source-backed and read-only.",
         inputSchema: z.object({ term: TermSchema }).strict(),
+        outputSchema: WeekScheduleOutputSchema,
         annotations: { readOnlyHint: true, openWorldHint: false },
+        _meta: OPENAI_TOOL_META,
       },
       async ({ term }, ctx) => {
+        const caller = callerFromContext(ctx);
+        if (!caller) return mcpAuthenticationRequired();
         try {
-          const snapshot = await readSnapshot(callerFromContext(ctx));
+          const snapshot = await readSnapshot(caller);
           const value = weekSchedule(snapshot, term);
           return ok(
             `Gapwise returned ${value.meetings.length} academic meeting(s), ${value.personalItems.length} delegated personal item(s), and ${value.gapPlans.length} deterministic gap plan(s) for ${term}.`,
@@ -161,11 +186,15 @@ const handler = createMcpHandler(
           .refine((value) => value.endTime > value.startTime, {
             message: "endTime must be after startTime",
           }),
+        outputSchema: GapContextOutputSchema,
         annotations: { readOnlyHint: true, openWorldHint: false },
+        _meta: OPENAI_TOOL_META,
       },
       async (args, ctx) => {
+        const caller = callerFromContext(ctx);
+        if (!caller) return mcpAuthenticationRequired();
         try {
-          const snapshot = await readSnapshot(callerFromContext(ctx));
+          const snapshot = await readSnapshot(caller);
           const value = gapContext(snapshot, args);
           return ok(
             value.gapPlan
@@ -186,11 +215,15 @@ const handler = createMcpHandler(
         description:
           "Return only planning/routing preferences the user explicitly allowed Gapwise to share with AI.",
         inputSchema: z.object({}).strict(),
+        outputSchema: PreferencesOutputSchema,
         annotations: { readOnlyHint: true, openWorldHint: false },
+        _meta: OPENAI_TOOL_META,
       },
       async (_args, ctx) => {
+        const caller = callerFromContext(ctx);
+        if (!caller) return mcpAuthenticationRequired();
         try {
-          const snapshot = await readSnapshot(callerFromContext(ctx));
+          const snapshot = await readSnapshot(caller);
           const value = {
             revision: snapshot.revision,
             permissions: snapshot.permissions,
@@ -215,17 +248,21 @@ const handler = createMcpHandler(
         inputSchema: z
           .object({ expectedRevision: revision, item: PersonalItemDraftSchema, idempotencyKey })
           .strict(),
+        outputSchema: QueueActionOutputSchema,
         annotations: {
           readOnlyHint: false,
           destructiveHint: false,
           idempotentHint: true,
           openWorldHint: false,
         },
+        _meta: OPENAI_TOOL_META,
       },
       async ({ expectedRevision, item, idempotencyKey: key }, ctx) => {
+        const caller = callerFromContext(ctx);
+        if (!caller) return mcpAuthenticationRequired();
         try {
           const result = await queueAction(
-            callerFromContext(ctx),
+            caller,
             { schemaVersion: 1, kind: "create_personal_item", expectedRevision, item },
             key,
           );
@@ -250,17 +287,21 @@ const handler = createMcpHandler(
             idempotencyKey,
           })
           .strict(),
+        outputSchema: QueueActionOutputSchema,
         annotations: {
           readOnlyHint: false,
           destructiveHint: false,
           idempotentHint: true,
           openWorldHint: false,
         },
+        _meta: OPENAI_TOOL_META,
       },
       async ({ expectedRevision, itemId, patch, idempotencyKey: key }, ctx) => {
+        const caller = callerFromContext(ctx);
+        if (!caller) return mcpAuthenticationRequired();
         try {
           const result = await queueAction(
-            callerFromContext(ctx),
+            caller,
             { schemaVersion: 1, kind: "update_personal_item", expectedRevision, itemId, patch },
             key,
           );
@@ -276,7 +317,7 @@ const handler = createMcpHandler(
       {
         title: "Delete a personal Gapwise timetable item",
         description:
-          "Queue deletion of an existing delegated personal timetable item. This is destructive and requires explicit write permission plus the current revision. Academic classes cannot be targeted.",
+          "Queue deletion of an existing delegated personal timetable item. This is destructive and requires explicit write permission plus the current snapshot revision. Academic classes cannot be targeted.",
         inputSchema: z
           .object({
             expectedRevision: revision,
@@ -284,17 +325,21 @@ const handler = createMcpHandler(
             idempotencyKey,
           })
           .strict(),
+        outputSchema: QueueActionOutputSchema,
         annotations: {
           readOnlyHint: false,
           destructiveHint: true,
           idempotentHint: true,
           openWorldHint: false,
         },
+        _meta: OPENAI_TOOL_META,
       },
       async ({ expectedRevision, itemId, idempotencyKey: key }, ctx) => {
+        const caller = callerFromContext(ctx);
+        if (!caller) return mcpAuthenticationRequired();
         try {
           const result = await queueAction(
-            callerFromContext(ctx),
+            caller,
             { schemaVersion: 1, kind: "delete_personal_item", expectedRevision, itemId },
             key,
           );
@@ -318,17 +363,21 @@ const handler = createMcpHandler(
             idempotencyKey,
           })
           .strict(),
+        outputSchema: QueueActionOutputSchema,
         annotations: {
           readOnlyHint: false,
           destructiveHint: false,
           idempotentHint: true,
           openWorldHint: false,
         },
+        _meta: OPENAI_TOOL_META,
       },
       async ({ expectedRevision, patch, idempotencyKey: key }, ctx) => {
+        const caller = callerFromContext(ctx);
+        if (!caller) return mcpAuthenticationRequired();
         try {
           const result = await queueAction(
-            callerFromContext(ctx),
+            caller,
             { schemaVersion: 1, kind: "update_gap_preferences", expectedRevision, patch },
             key,
           );
@@ -338,6 +387,8 @@ const handler = createMcpHandler(
         }
       },
     );
+
+    installToolSecuritySchemeProjection(server);
   },
   {
     serverInfo: { name: "gapwise-ai", version: "0.1.0" },
@@ -348,11 +399,8 @@ const handler = createMcpHandler(
   },
 );
 
-// Supabase OAuth currently exposes only standard scopes (openid/email/profile/phone),
-// so Gapwise's fine-grained permissions live in the encrypted delegation snapshot instead
-// of pretending a custom `gapwise:ai` OAuth scope exists.
 const authenticated = withMcpAuth(handler, verifyMcpToken, {
-  required: true,
+  required: false,
   resourceMetadataPath: "/.well-known/oauth-protected-resource",
 });
 
