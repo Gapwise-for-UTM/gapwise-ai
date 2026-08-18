@@ -8,6 +8,7 @@ export type VerifiedCaller = {
 };
 
 type JwtClaims = {
+  client_id?: unknown;
   exp?: unknown;
   sub?: unknown;
 };
@@ -56,11 +57,18 @@ export async function verifyMcpToken(
   if (!bearerToken) return undefined;
   const caller = await verifySupabaseAccessToken(bearerToken);
   if (!caller) return undefined;
+
+  // MCP access must come from a Supabase OAuth client token. Ordinary Gapwise
+  // browser sessions use the browser delegation API and do not carry client_id.
+  const claims = jwtClaims(bearerToken);
+  if (typeof claims?.client_id !== "string" || claims.client_id.length < 1) return undefined;
+
   return {
     token: bearerToken,
-    clientId: caller.userId,
-    scopes: ["gapwise:ai"],
+    clientId: claims.client_id,
+    scopes: [],
     expiresAt: caller.expiresAt,
+    extra: { userId: caller.userId },
   };
 }
 
