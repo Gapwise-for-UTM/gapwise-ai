@@ -2,6 +2,7 @@ import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { z } from "zod";
 import type { VerifiedCaller } from "@/src/auth/verify";
 import { verifyMcpToken } from "@/src/auth/verify";
+import { mcpAuthenticationRequired, OPENAI_TOOL_META } from "@/src/auth/mcp";
 import {
   GapPreferencesPatchSchema,
   PersonalItemDraftSchema,
@@ -27,7 +28,7 @@ const idempotencyKey = z
   .optional()
   .describe("Optional stable retry key. Reuse the same value when retrying the exact same requested change.");
 
-function callerFromContext(ctx: {
+type ToolContext = {
   http?: {
     authInfo?: {
       token: string;
@@ -36,12 +37,12 @@ function callerFromContext(ctx: {
       extra?: Record<string, unknown>;
     };
   };
-}): VerifiedCaller {
+};
+
+function callerFromContext(ctx: ToolContext): VerifiedCaller | null {
   const auth = ctx.http?.authInfo;
   const userId = auth?.extra?.["userId"];
-  if (!auth?.token || !auth.expiresAt || typeof userId !== "string") {
-    throw new Error("Authenticated caller context is missing.");
-  }
+  if (!auth?.token || !auth.expiresAt || typeof userId !== "string") return null;
   return { userId, accessToken: auth.token, expiresAt: auth.expiresAt };
 }
 
@@ -82,10 +83,13 @@ const handler = createMcpHandler(
           "Check whether this Gapwise account has explicitly enabled AI access and see the current revision and permissions. Does not return timetable content.",
         inputSchema: z.object({}).strict(),
         annotations: { readOnlyHint: true, openWorldHint: false },
+        _meta: OPENAI_TOOL_META,
       },
       async (_args, ctx) => {
+        const caller = callerFromContext(ctx);
+        if (!caller) return mcpAuthenticationRequired();
         try {
-          const value = await delegationStatus(callerFromContext(ctx));
+          const value = await delegationStatus(caller);
           return ok(
             value.enabled
               ? `Gapwise AI is enabled at revision ${value.revision}.`
@@ -106,10 +110,13 @@ const handler = createMcpHandler(
           "Return exact source-backed academic meetings, explicitly delegated personal items, and deterministic Gapwise gap assessments for one calendar date when those permissions are enabled. Never guesses missing meetings, locations, routes, or gap recommendations. Academic meetings are read-only.",
         inputSchema: z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u) }).strict(),
         annotations: { readOnlyHint: true, openWorldHint: false },
+        _meta: OPENAI_TOOL_META,
       },
       async ({ date }, ctx) => {
+        const caller = callerFromContext(ctx);
+        if (!caller) return mcpAuthenticationRequired();
         try {
-          const snapshot = await readSnapshot(callerFromContext(ctx));
+          const snapshot = await readSnapshot(caller);
           const value = daySchedule(snapshot, date);
           return ok(
             `Gapwise returned ${value.meetings.length} academic meeting(s), ${value.personalItems.length} delegated personal item(s), and ${value.gapPlans.length} deterministic gap plan(s) for ${date}.`,
@@ -129,10 +136,13 @@ const handler = createMcpHandler(
           "Return the compact normalized Gapwise timetable for one academic term plus deterministic Gapwise gap assessments and delegated personal items when permitted. Academic meetings remain source-backed and read-only.",
         inputSchema: z.object({ term: TermSchema }).strict(),
         annotations: { readOnlyHint: true, openWorldHint: false },
+        _meta: OPENAI_TOOL_META,
       },
       async ({ term }, ctx) => {
+        const caller = callerFromContext(ctx);
+        if (!caller) return mcpAuthenticationRequired();
         try {
-          const snapshot = await readSnapshot(callerFromContext(ctx));
+          const snapshot = await readSnapshot(caller);
           const value = weekSchedule(snapshot, term);
           return ok(
             `Gapwise returned ${value.meetings.length} academic meeting(s), ${value.personalItems.length} delegated personal item(s), and ${value.gapPlans.length} deterministic gap plan(s) for ${term}.`,
@@ -162,10 +172,13 @@ const handler = createMcpHandler(
             message: "endTime must be after startTime",
           }),
         annotations: { readOnlyHint: true, openWorldHint: false },
+        _meta: OPENAI_TOOL_META,
       },
       async (args, ctx) => {
+        const caller = callerFromContext(ctx);
+        if (!caller) return mcpAuthenticationRequired();
         try {
-          const snapshot = await readSnapshot(callerFromContext(ctx));
+          const snapshot = await readSnapshot(caller);
           const value = gapContext(snapshot, args);
           return ok(
             value.gapPlan
@@ -187,10 +200,13 @@ const handler = createMcpHandler(
           "Return only planning/routing preferences the user explicitly allowed Gapwise to share with AI.",
         inputSchema: z.object({}).strict(),
         annotations: { readOnlyHint: true, openWorldHint: false },
+        _meta: OPENAI_TOOL_META,
       },
       async (_args, ctx) => {
+        const caller = callerFromContext(ctx);
+        if (!caller) return mcpAuthenticationRequired();
         try {
-          const snapshot = await readSnapshot(callerFromContext(ctx));
+          const snapshot = await readSnapshot(caller);
           const value = {
             revision: snapshot.revision,
             permissions: snapshot.permissions,
@@ -221,11 +237,14 @@ const handler = createMcpHandler(
           idempotentHint: true,
           openWorldHint: false,
         },
+        _meta: OPENAI_TOOL_META,
       },
       async ({ expectedRevision, item, idempotencyKey: key }, ctx) => {
+        const caller = callerFromContext(ctx);
+        if (!caller) return mcpAuthenticationRequired();
         try {
           const result = await queueAction(
-            callerFromContext(ctx),
+            caller,
             { schemaVersion: 1, kind: "create_personal_item", expectedRevision, item },
             key,
           );
@@ -256,11 +275,14 @@ const handler = createMcpHandler(
           idempotentHint: true,
           openWorldHint: false,
         },
+        _meta: OPENAI_TOOL_META,
       },
       async ({ expectedRevision, itemId, patch, idempotencyKey: key }, ctx) => {
+        const caller = callerFromContext(ctx);
+        if (!caller) return mcpAuthenticationRequired();
         try {
           const result = await queueAction(
-            callerFromContext(ctx),
+            caller,
             { schemaVersion: 1, kind: "update_personal_item", expectedRevision, itemId, patch },
             key,
           );
@@ -290,11 +312,14 @@ const handler = createMcpHandler(
           idempotentHint: true,
           openWorldHint: false,
         },
+        _meta: OPENAI_TOOL_META,
       },
       async ({ expectedRevision, itemId, idempotencyKey: key }, ctx) => {
+        const caller = callerFromContext(ctx);
+        if (!caller) return mcpAuthenticationRequired();
         try {
           const result = await queueAction(
-            callerFromContext(ctx),
+            caller,
             { schemaVersion: 1, kind: "delete_personal_item", expectedRevision, itemId },
             key,
           );
@@ -324,11 +349,14 @@ const handler = createMcpHandler(
           idempotentHint: true,
           openWorldHint: false,
         },
+        _meta: OPENAI_TOOL_META,
       },
       async ({ expectedRevision, patch, idempotencyKey: key }, ctx) => {
+        const caller = callerFromContext(ctx);
+        if (!caller) return mcpAuthenticationRequired();
         try {
           const result = await queueAction(
-            callerFromContext(ctx),
+            caller,
             { schemaVersion: 1, kind: "update_gap_preferences", expectedRevision, patch },
             key,
           );
@@ -348,11 +376,12 @@ const handler = createMcpHandler(
   },
 );
 
-// Supabase OAuth currently exposes only standard scopes (openid/email/profile/phone),
-// so Gapwise's fine-grained permissions live in the encrypted delegation snapshot instead
-// of pretending a custom `gapwise:ai` OAuth scope exists.
+// Keep MCP discovery and tools/list available to unauthenticated clients so
+// ChatGPT/Claude can scan the server and discover OAuth metadata. Individual
+// tools fail closed with an in-band `mcp/www_authenticate` challenge until a
+// valid, resource-bound Supabase OAuth token has been attached by the wrapper.
 const authenticated = withMcpAuth(handler, verifyMcpToken, {
-  required: true,
+  required: false,
   resourceMetadataPath: "/.well-known/oauth-protected-resource",
 });
 
