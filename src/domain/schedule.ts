@@ -56,7 +56,15 @@ function isFixedPersonal(item: PersonalItem): item is Extract<PersonalItem, { fl
 export function daySchedule(snapshot: AiSnapshot, date: string) {
   const weekday = weekdayForDate(date);
   if (!weekday) {
-    return { date, weekday: null, term: termForDate(date), revision: snapshot.revision, meetings: [], personalItems: [] };
+    return {
+      date,
+      weekday: null,
+      term: termForDate(date),
+      revision: snapshot.revision,
+      meetings: [],
+      personalItems: [],
+      gapPlans: [],
+    };
   }
   const term = termForDate(date);
   const meetings = snapshot.schedule
@@ -71,7 +79,18 @@ export function daySchedule(snapshot: AiSnapshot, date: string) {
           return aStart - bStart;
         })
     : [];
-  return { date, weekday, term, revision: snapshot.revision, meetings, personalItems };
+  const gapPlans = snapshot.permissions.readGapPlans
+    ? snapshot.gapPlans.filter((plan) => plan.term === term && plan.weekday === weekday)
+    : [];
+  return {
+    date,
+    weekday,
+    term,
+    revision: snapshot.revision,
+    meetings,
+    personalItems,
+    gapPlans,
+  };
 }
 
 const WEEKDAY_ORDER = new Map([
@@ -102,7 +121,16 @@ export function weekSchedule(snapshot: AiSnapshot, term: "Fall" | "Winter" | "Su
           return aStart - bStart;
         })
     : [];
-  return { term, revision: snapshot.revision, meetings, personalItems };
+  const gapPlans = snapshot.permissions.readGapPlans
+    ? snapshot.gapPlans
+        .filter((plan) => plan.term === term)
+        .sort(
+          (a, b) =>
+            (WEEKDAY_ORDER.get(a.weekday) ?? 99) - (WEEKDAY_ORDER.get(b.weekday) ?? 99) ||
+            a.startTime - b.startTime,
+        )
+    : [];
+  return { term, revision: snapshot.revision, meetings, personalItems, gapPlans };
 }
 
 export function gapContext(
@@ -124,15 +152,38 @@ export function gapContext(
     (meeting) => meeting.term === input.term && meeting.weekday === input.weekday,
   );
   const boundaries = [
-    ...academic.map((item) => ({ source: "academic" as const, id: item.id, startTime: item.startTime, endTime: item.endTime, item })),
-    ...fixedPersonal.map((item) => ({ source: "personal" as const, id: item.id, startTime: item.startTime, endTime: item.endTime, item })),
+    ...academic.map((item) => ({
+      source: "academic" as const,
+      id: item.id,
+      startTime: item.startTime,
+      endTime: item.endTime,
+      item,
+    })),
+    ...fixedPersonal.map((item) => ({
+      source: "personal" as const,
+      id: item.id,
+      startTime: item.startTime,
+      endTime: item.endTime,
+      item,
+    })),
   ];
-  const previous = boundaries
-    .filter((item) => item.endTime <= input.startTime)
-    .sort((a, b) => b.endTime - a.endTime)[0] ?? null;
-  const next = boundaries
-    .filter((item) => item.startTime >= input.endTime)
-    .sort((a, b) => a.startTime - b.startTime)[0] ?? null;
+  const previous =
+    boundaries
+      .filter((item) => item.endTime <= input.startTime)
+      .sort((a, b) => b.endTime - a.endTime)[0] ?? null;
+  const next =
+    boundaries
+      .filter((item) => item.startTime >= input.endTime)
+      .sort((a, b) => a.startTime - b.startTime)[0] ?? null;
+  const gapPlan = snapshot.permissions.readGapPlans
+    ? (snapshot.gapPlans.find(
+        (plan) =>
+          plan.term === input.term &&
+          plan.weekday === input.weekday &&
+          plan.startTime === input.startTime &&
+          plan.endTime === input.endTime,
+      ) ?? null)
+    : null;
 
   return {
     revision: snapshot.revision,
@@ -145,10 +196,13 @@ export function gapContext(
     },
     previous,
     next,
+    gapPlan,
     gapPreferences: snapshot.permissions.readGapPreferences ? snapshot.gapPreferences : null,
     routingPreferences: snapshot.permissions.readRoutingPreferences ? snapshot.routingPreferences : null,
-    routingStatus: "unavailable_until_gapwise_public_api" as const,
-    usableTimeMinutes: null,
-    leaveByMinutes: null,
+    planningStatus: gapPlan
+      ? ("gapwise_deterministic_assessment" as const)
+      : snapshot.permissions.readGapPlans
+        ? ("no_matching_gap_plan" as const)
+        : ("gap_plan_permission_disabled" as const),
   };
 }
