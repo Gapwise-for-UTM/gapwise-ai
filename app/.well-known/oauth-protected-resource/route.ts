@@ -4,10 +4,7 @@ import {
 } from "mcp-handler";
 import { supabaseIssuer } from "@/src/config";
 
-export async function GET(request: Request) {
-  return protectedResourceHandler({ authServerUrls: [supabaseIssuer()] })(request);
-}
+const handler = protectedResourceHandler({ authServerUrls: [supabaseIssuer()] });
+const corsHandler = metadataCorsOptionsRequestHandler();
 
-export async function OPTIONS() {
-  return metadataCorsOptionsRequestHandler()();
-}
+export { handler as GET, corsHandler as OPTIONS };
