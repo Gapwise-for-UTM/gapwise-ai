@@ -17,14 +17,23 @@ import {
   readSnapshot,
 } from "@/src/delegation/service";
 
-const revision = z.number().int().min(1).describe("The current Gapwise AI snapshot revision returned by a read tool.");
-const idempotencyKey = z.string().min(8).max(128).optional().describe(
-  "Optional stable retry key. Reuse the same value when retrying the exact same requested change.",
+const revision = z.number().int().min(1).describe(
+  "The current Gapwise AI snapshot revision returned by a read tool.",
 );
+const idempotencyKey = z
+  .string()
+  .min(8)
+  .max(128)
+  .optional()
+  .describe("Optional stable retry key. Reuse the same value when retrying the exact same requested change.");
 
-function callerFromContext(ctx: { http?: { authInfo?: { token: string; clientId: string; expiresAt?: number } } }): VerifiedCaller {
+function callerFromContext(ctx: {
+  http?: { authInfo?: { token: string; clientId: string; expiresAt?: number } };
+}): VerifiedCaller {
   const auth = ctx.http?.authInfo;
-  if (!auth?.token || !auth.clientId || !auth.expiresAt) throw new Error("Authenticated caller context is missing.");
+  if (!auth?.token || !auth.clientId || !auth.expiresAt) {
+    throw new Error("Authenticated caller context is missing.");
+  }
   return { userId: auth.clientId, accessToken: auth.token, expiresAt: auth.expiresAt };
 }
 
@@ -69,7 +78,12 @@ const handler = createMcpHandler(
       async (_args, ctx) => {
         try {
           const value = await delegationStatus(callerFromContext(ctx));
-          return ok(value.enabled ? `Gapwise AI is enabled at revision ${value.revision}.` : "Gapwise AI is not enabled.", value);
+          return ok(
+            value.enabled
+              ? `Gapwise AI is enabled at revision ${value.revision}.`
+              : "Gapwise AI is not enabled.",
+            value,
+          );
         } catch (error) {
           return failure(error);
         }
@@ -136,7 +150,9 @@ const handler = createMcpHandler(
             endTime: z.number().int().min(0).max(1440),
           })
           .strict()
-          .refine((value) => value.endTime > value.startTime, { message: "endTime must be after startTime" }),
+          .refine((value) => value.endTime > value.startTime, {
+            message: "endTime must be after startTime",
+          }),
         annotations: { readOnlyHint: true, openWorldHint: false },
       },
       async (args, ctx) => {
@@ -169,7 +185,9 @@ const handler = createMcpHandler(
             revision: snapshot.revision,
             permissions: snapshot.permissions,
             gapPreferences: snapshot.permissions.readGapPreferences ? snapshot.gapPreferences : null,
-            routingPreferences: snapshot.permissions.readRoutingPreferences ? snapshot.routingPreferences : null,
+            routingPreferences: snapshot.permissions.readRoutingPreferences
+              ? snapshot.routingPreferences
+              : null,
           };
           return ok("Gapwise returned the currently delegated AI planning preferences.", value);
         } catch (error) {
@@ -187,7 +205,12 @@ const handler = createMcpHandler(
         inputSchema: z
           .object({ expectedRevision: revision, item: PersonalItemDraftSchema, idempotencyKey })
           .strict(),
-        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false,
+        },
       },
       async ({ expectedRevision, item, idempotencyKey: key }, ctx) => {
         try {
@@ -217,7 +240,12 @@ const handler = createMcpHandler(
             idempotencyKey,
           })
           .strict(),
-        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false,
+        },
       },
       async ({ expectedRevision, itemId, patch, idempotencyKey: key }, ctx) => {
         try {
@@ -246,7 +274,12 @@ const handler = createMcpHandler(
             idempotencyKey,
           })
           .strict(),
-        annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: true,
+          idempotentHint: true,
+          openWorldHint: false,
+        },
       },
       async ({ expectedRevision, itemId, idempotencyKey: key }, ctx) => {
         try {
@@ -275,7 +308,12 @@ const handler = createMcpHandler(
             idempotencyKey,
           })
           .strict(),
-        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false,
+        },
       },
       async ({ expectedRevision, patch, idempotencyKey: key }, ctx) => {
         try {
@@ -300,9 +338,11 @@ const handler = createMcpHandler(
   },
 );
 
+// Supabase OAuth currently exposes only standard scopes (openid/email/profile/phone),
+// so Gapwise's fine-grained permissions live in the encrypted delegation snapshot instead
+// of pretending a custom `gapwise:ai` OAuth scope exists.
 const authenticated = withMcpAuth(handler, verifyMcpToken, {
   required: true,
-  requiredScopes: ["gapwise:ai"],
   resourceMetadataPath: "/.well-known/oauth-protected-resource",
 });
 
