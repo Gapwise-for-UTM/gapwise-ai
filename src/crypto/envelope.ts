@@ -20,7 +20,17 @@ function decodeBase64Url(value: string, maximumBytes: number): Buffer {
 }
 
 export function parseDataKey(value: string): Buffer {
-  const key = decodeBase64Url(value, KEY_BYTES);
+  const trimmed = value.trim();
+  // Secret generators commonly emit either RFC 4648 Base64 or Base64url and
+  // may retain padding. Both represent the same random bytes. Accept those
+  // standard encodings, but reject whitespace/quotes/other text and require
+  // exactly 256 bits after decoding.
+  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(trimmed) &&
+      !/^[A-Za-z0-9_-]+={0,2}$/u.test(trimmed)) {
+    throw new Error("GAPWISE_AI_DATA_KEY encoding is invalid.");
+  }
+  const normalized = trimmed.replace(/-/gu, "+").replace(/_/gu, "/");
+  const key = Buffer.from(normalized, "base64");
   if (key.byteLength !== KEY_BYTES) throw new Error("GAPWISE_AI_DATA_KEY must contain exactly 32 bytes.");
   return key;
 }
