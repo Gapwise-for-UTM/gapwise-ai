@@ -5,6 +5,7 @@ const permissions = {
   readSchedule: true as const,
   readPersonal: true,
   writePersonal: true,
+  readGapPlans: true,
   readGapPreferences: true,
   writeGapPreferences: true,
   readRoutingPreferences: true,
@@ -26,8 +27,47 @@ const meeting = {
   locationType: "physical" as const,
 };
 
+const gapPlan = {
+  id: "gap-1",
+  term: "Fall" as const,
+  weekday: "Monday" as const,
+  startTime: 660,
+  endTime: 780,
+  durationMinutes: 120,
+  previousMeetingId: meeting.id,
+  nextMeetingId: "MAT157-LEC0101-Monday-780",
+  assessment: {
+    primary: {
+      id: "productivity-study-block",
+      action: "study-block" as const,
+      title: "Focused study",
+      summary: "Enough for one meaningful study session without rushing the transition.",
+      score: 89,
+      activityMinutes: 95,
+      reasons: ["15 min is protected for travel and transition risk."],
+      tags: ["route-verified" as const],
+      timeline: [
+        { kind: "activity" as const, label: "Focused study", minutes: 95 },
+        { kind: "travel" as const, label: "Travel", minutes: 10 },
+        { kind: "buffer" as const, label: "Buffer", minutes: 5 },
+      ],
+    },
+    alternatives: [],
+    confidence: 0.95,
+    confidenceLabel: "high" as const,
+    travelMinutes: 10,
+    bufferMinutes: 5,
+    leaveByMinutes: 765,
+    arrivalMinutes: 775,
+    fallback: false,
+    routeStatus: "routed" as const,
+    routeAccuracy: "Verified indoor + outdoor route" as const,
+    warnings: [],
+  },
+};
+
 describe("delegation schemas", () => {
-  it("accepts a minimized source-backed snapshot", () => {
+  it("accepts a minimized source-backed snapshot with deterministic Gapwise plans", () => {
     const result = AiSnapshotSchema.safeParse({
       schemaVersion: 1,
       revision: 1,
@@ -35,10 +75,26 @@ describe("delegation schemas", () => {
       permissions,
       schedule: [meeting],
       personalItems: [],
+      gapPlans: [gapPlan],
       gapPreferences: null,
       routingPreferences: null,
     });
     expect(result.success).toBe(true);
+  });
+
+  it("rejects delegated gap plans when their permission is disabled", () => {
+    const result = AiSnapshotSchema.safeParse({
+      schemaVersion: 1,
+      revision: 1,
+      generatedAt: "2026-08-18T16:30:00.000Z",
+      permissions: { ...permissions, readGapPlans: false },
+      schedule: [meeting],
+      personalItems: [],
+      gapPlans: [gapPlan],
+      gapPreferences: null,
+      routingPreferences: null,
+    });
+    expect(result.success).toBe(false);
   });
 
   it("rejects undeclared meeting fields such as notes", () => {
@@ -49,6 +105,7 @@ describe("delegation schemas", () => {
       permissions,
       schedule: [{ ...meeting, notes: "do not delegate this" }],
       personalItems: [],
+      gapPlans: [],
       gapPreferences: null,
       routingPreferences: null,
     });
