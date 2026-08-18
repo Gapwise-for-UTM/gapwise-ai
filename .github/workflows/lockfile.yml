@@ -18,13 +18,25 @@ jobs:
         with:
           node-version: 24
       - run: npm install --ignore-scripts
-      - name: Commit lockfile if needed
+      - name: Remove implementation scratch notes
         run: |
-          if git diff --quiet -- package-lock.json && git ls-files --error-unmatch package-lock.json >/dev/null 2>&1; then
+          rm -f \
+            docs/BUILD_SCOPE.md \
+            docs/CLIENT_SECURITY.md \
+            docs/IMPLEMENTATION_STATUS.md \
+            docs/NO_LOGGING.md \
+            docs/OPENAPI.md \
+            docs/PRIVACY_COPY.md \
+            docs/PRODUCTION_MIGRATION.md \
+            docs/PROVIDER_NEUTRALITY.md \
+            docs/READY_FOR_CI.md
+      - name: Commit deterministic dependency state and cleanup
+        run: |
+          if git diff --quiet && git ls-files --error-unmatch package-lock.json >/dev/null 2>&1; then
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json
-          git commit -m "chore: commit npm lockfile"
+          git add -A package-lock.json docs
+          git commit -m "chore: finalize AI service repository hygiene"
           git push origin HEAD:feat/private-mcp-foundation
