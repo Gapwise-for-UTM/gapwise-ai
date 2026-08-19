@@ -3,10 +3,12 @@ import { checkPlanFeasibility } from "@/src/domain/decision";
 import {
   AvailabilityOutputSchema,
   DecisionContextOutputSchema,
+  WeeklyAvailabilityOutputSchema,
 } from "@/src/mcp/output-schemas";
 import { withMcpDataBoundary } from "@/src/mcp/text-content";
 
 type Availability = z.infer<typeof AvailabilityOutputSchema>;
+type WeeklyAvailability = z.infer<typeof WeeklyAvailabilityOutputSchema>;
 type DecisionContext = z.infer<typeof DecisionContextOutputSchema>;
 type PlanFeasibility = ReturnType<typeof checkPlanFeasibility>;
 
@@ -66,6 +68,45 @@ export function formatAvailability(value: Availability): string {
         `  Soft competing personal items: ${window.flexiblePersonalItems
           .map((item) => `${item.title} (${item.durationMinutes} min)`)
           .join(", ")}.`,
+      );
+    }
+  }
+  return withMcpDataBoundary(lines.join("\n"));
+}
+
+export function formatWeeklyAvailability(value: WeeklyAvailability): string {
+  const lines = [
+    `Gapwise weekly availability for ${value.term} — revision ${value.revision}, snapshot ${value.generatedAt}.`,
+    `Status: ${value.status}. Minimum usable activity duration: ${value.minimumDurationMinutes} min.`,
+    value.interpretation,
+  ];
+  if (value.searchBounds) {
+    lines.push(`Daily search bounds: ${clock(value.searchBounds.startTime)}–${clock(value.searchBounds.endTime)}.`);
+  } else {
+    lines.push("No day-edge assumptions were made; only windows bounded by delegated hard events are searched.");
+  }
+  if (!value.windows.length) {
+    lines.push("No weekly opportunity satisfies the requested usable duration under the delegated facts.");
+    return withMcpDataBoundary(lines.join("\n"));
+  }
+
+  for (const [index, window] of value.windows.entries()) {
+    lines.push(
+      `Opportunity ${index + 1}: ${window.weekday} ${clock(window.startTime)}–${clock(window.endTime)} — ${window.rawDurationMinutes} raw free min, ${window.usableActivityMinutes} usable activity min; validation ${window.planningValidation}.`,
+      `  Previous boundary: ${boundaryText(window.previousBoundary)}.`,
+      `  Next boundary: ${boundaryText(window.nextBoundary)}.`,
+    );
+    if (window.gapPlan) {
+      lines.push(`  Authoritative Gapwise gap assessment: ${gapPlanText(window.gapPlan)}.`);
+      if (window.gapPlan.assessment.warnings.length) {
+        lines.push(`  Gap warnings: ${window.gapPlan.assessment.warnings.join(" ")}`);
+      }
+    } else {
+      lines.push("  Temporal-only opportunity: transition travel/buffer is not Gapwise-validated for this window.");
+    }
+    if (window.flexiblePersonalItems.length) {
+      lines.push(
+        `  Soft competing personal items: ${window.flexiblePersonalItems.map((item) => `${item.title} (${item.durationMinutes} min)`).join(", ")}.`,
       );
     }
   }
