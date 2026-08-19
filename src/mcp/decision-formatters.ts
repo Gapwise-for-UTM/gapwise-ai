@@ -1,14 +1,14 @@
 import type { z } from "zod";
+import { checkPlanFeasibility } from "@/src/domain/decision";
 import {
   AvailabilityOutputSchema,
   DecisionContextOutputSchema,
-  PlanFeasibilityOutputSchema,
 } from "@/src/mcp/output-schemas";
 import { withMcpDataBoundary } from "@/src/mcp/text-content";
 
 type Availability = z.infer<typeof AvailabilityOutputSchema>;
 type DecisionContext = z.infer<typeof DecisionContextOutputSchema>;
-type PlanFeasibility = z.infer<typeof PlanFeasibilityOutputSchema>;
+type PlanFeasibility = ReturnType<typeof checkPlanFeasibility>;
 
 function clock(minutes: number): string {
   const normalized = ((minutes % 1440) + 1440) % 1440;
