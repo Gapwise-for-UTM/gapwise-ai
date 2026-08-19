@@ -142,6 +142,15 @@ export const AvailabilityOutputSchema = z
   })
   .strict();
 
+const GapwiseActivityWindowSchema = z
+  .object({
+    startTime: minute,
+    endTime: minute,
+    maxActivityMinutes: z.number().int().min(0).max(1440),
+    source: z.enum(["primary_timeline", "leave_by_fallback"]),
+  })
+  .strict();
+
 export const PlanFeasibilityOutputSchema = z
   .object({
     revision,
@@ -176,6 +185,7 @@ export const PlanFeasibilityOutputSchema = z
     previousBoundary: DecisionBoundarySchema.nullable(),
     nextBoundary: DecisionBoundarySchema.nullable(),
     gapPlan: GapPlanSchema.nullable(),
+    gapwiseActivityWindow: GapwiseActivityWindowSchema.nullable(),
     reasons: z.array(z.string().max(1000)).max(24),
     warnings: z.array(z.string().max(1000)).max(24),
   })
