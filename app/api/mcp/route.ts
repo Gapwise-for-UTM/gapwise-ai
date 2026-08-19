@@ -7,6 +7,7 @@ import {
   mcpAuthenticationRequired,
   OPENAI_TOOL_META,
 } from "@/src/auth/mcp";
+import { findWeeklyAvailableWindows } from "@/src/domain/availability";
 import {
   checkPlanFeasibility,
   decisionContext,
@@ -30,6 +31,7 @@ import {
   formatAvailability,
   formatDecisionContext,
   formatPlanFeasibility,
+  formatWeeklyAvailability,
 } from "@/src/mcp/decision-formatters";
 import {
   formatDaySchedule,
@@ -46,6 +48,7 @@ import {
   PlanFeasibilityOutputSchema,
   PreferencesOutputSchema,
   QueueActionOutputSchema,
+  WeeklyAvailabilityOutputSchema,
   WeekScheduleOutputSchema,
 } from "@/src/mcp/output-schemas";
 
@@ -64,6 +67,34 @@ const decisionScopeSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("date"), date: calendarDate }).strict(),
   z.object({ kind: z.literal("term_weekday"), term: TermSchema, weekday: WeekdaySchema }).strict(),
 ]);
+const boundedSearchFields = {
+  minimumDurationMinutes: z.number().int().min(1).max(720),
+  windowStart: minute.optional(),
+  windowEnd: minute.optional(),
+  maxResults: z.number().int().min(1).max(20).default(10),
+};
+
+function validateOptionalBounds(
+  value: { windowStart?: number; windowEnd?: number },
+  ctx: z.RefinementCtx,
+) {
+  const hasStart = value.windowStart !== undefined;
+  const hasEnd = value.windowEnd !== undefined;
+  if (hasStart !== hasEnd) {
+    ctx.addIssue({
+      code: "custom",
+      path: [hasStart ? "windowEnd" : "windowStart"],
+      message: "windowStart and windowEnd must be supplied together.",
+    });
+  }
+  if (hasStart && hasEnd && value.windowEnd! <= value.windowStart!) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["windowEnd"],
+      message: "windowEnd must be after windowStart.",
+    });
+  }
+}
 
 type ToolContext = {
   http?: {
@@ -282,34 +313,14 @@ const handler = createMcpHandler(
       {
         title: "Find my Gapwise available windows",
         description:
-          "Find source-backed free windows using delegated academic meetings and, when permitted, fixed personal items as hard constraints. Flexible personal items are returned as soft competing constraints. With no explicit search bounds, Gapwise only returns windows between delegated hard events and does not assume wake/sleep or free time outside the scheduled day. Exact matching Gapwise gap assessments are attached when available. Use this instead of calculating free time yourself.",
+          "Find source-backed free windows on one date or one term weekday using delegated academic meetings and, when permitted, fixed personal items as hard constraints. Flexible personal items are returned as soft competing constraints. With no explicit search bounds, Gapwise only returns windows between delegated hard events and does not assume wake/sleep or free time outside the scheduled day. Use this instead of calculating free time yourself.",
         inputSchema: z
           .object({
             scope: decisionScopeSchema,
-            minimumDurationMinutes: z.number().int().min(1).max(720),
-            windowStart: minute.optional(),
-            windowEnd: minute.optional(),
-            maxResults: z.number().int().min(1).max(20).default(10),
+            ...boundedSearchFields,
           })
           .strict()
-          .superRefine((value, ctx) => {
-            const hasStart = value.windowStart !== undefined;
-            const hasEnd = value.windowEnd !== undefined;
-            if (hasStart !== hasEnd) {
-              ctx.addIssue({
-                code: "custom",
-                path: [hasStart ? "windowEnd" : "windowStart"],
-                message: "windowStart and windowEnd must be supplied together.",
-              });
-            }
-            if (hasStart && hasEnd && value.windowEnd! <= value.windowStart!) {
-              ctx.addIssue({
-                code: "custom",
-                path: ["windowEnd"],
-                message: "windowEnd must be after windowStart.",
-              });
-            }
-          }),
+          .superRefine(validateOptionalBounds),
         outputSchema: AvailabilityOutputSchema,
         annotations: { readOnlyHint: true, openWorldHint: false },
         _meta: OPENAI_TOOL_META,
@@ -328,11 +339,41 @@ const handler = createMcpHandler(
     );
 
     server.registerTool(
+      "find_my_weekly_opportunities",
+      {
+        title: "Find my Gapwise weekly opportunities",
+        description:
+          "Search Monday-Friday for usable planning opportunities in one academic term. This is Gapwise-aware: a raw free gap is capped by the delegated deterministic Gapwise activity budget, and a gap whose surrounding route is unavailable contributes zero validated activity minutes. Results without a delegated gap assessment are explicitly temporal-only. Use this for requests like 'find 90-minute study windows this week' instead of calling every weekday or doing timetable arithmetic yourself.",
+        inputSchema: z
+          .object({
+            term: TermSchema,
+            ...boundedSearchFields,
+          })
+          .strict()
+          .superRefine(validateOptionalBounds),
+        outputSchema: WeeklyAvailabilityOutputSchema,
+        annotations: { readOnlyHint: true, openWorldHint: false },
+        _meta: OPENAI_TOOL_META,
+      },
+      async (args, ctx) => {
+        const caller = callerFromContext(ctx);
+        if (!caller) return mcpAuthenticationRequired();
+        try {
+          const snapshot = await readSnapshot(caller);
+          const value = findWeeklyAvailableWindows(snapshot, args);
+          return ok(formatWeeklyAvailability(value), value);
+        } catch (error) {
+          return failure(error);
+        }
+      },
+    );
+
+    server.registerTool(
       "check_my_plan_feasibility",
       {
         title: "Check my Gapwise plan feasibility",
         description:
-          "Validate a proposed personal time block against delegated hard timetable conflicts and, when the block lies inside a delegated Gapwise gap, the authoritative activity budget, route availability and leave-by constraint. This is read-only and does not create anything. A proposed location is echoed but not route-validated by this tool, so never claim arbitrary-location travel safety from this result alone. Call this before proposing or writing a concrete personal block.",
+          "Validate a proposed personal time block against delegated hard timetable conflicts and, when the block lies inside a delegated Gapwise gap, the authoritative primary activity envelope and route availability. This is read-only and does not create anything. A proposed location is echoed but not route-validated by this tool, so never claim arbitrary-location travel safety from this result alone. Call this before proposing a concrete personal block.",
         inputSchema: z
           .object({
             scope: decisionScopeSchema,
@@ -367,7 +408,7 @@ const handler = createMcpHandler(
       {
         title: "Create a personal Gapwise timetable item",
         description:
-          "Queue creation of a personal timetable item in Gapwise. Requires explicit write permission and the current snapshot revision. This cannot create or modify an ACORN academic class. For planning-oriented writes, first use check_my_plan_feasibility on the exact proposed block.",
+          "Queue creation of a personal timetable item in Gapwise. Requires explicit write permission and the current snapshot revision. Academic classes cannot be created or modified. Fixed-item writes are independently revalidated at the service layer against delegated hard conflicts and known Gapwise transition/activity-envelope violations even if a client skipped the read-only feasibility tool.",
         inputSchema: z
           .object({ expectedRevision: revision, item: PersonalItemDraftSchema, idempotencyKey })
           .strict(),
@@ -401,7 +442,7 @@ const handler = createMcpHandler(
       {
         title: "Update a personal Gapwise timetable item",
         description:
-          "Queue changes to an existing delegated personal timetable item by stable ID. Requires explicit write permission and a current revision. Academic classes cannot be targeted.",
+          "Queue changes to an existing delegated personal timetable item by stable ID. Requires explicit write permission and a current revision. Academic classes cannot be targeted. Any resulting fixed-item schedule is independently checked for delegated hard conflicts and known Gapwise transition/activity-envelope violations before queueing.",
         inputSchema: z
           .object({
             expectedRevision: revision,
@@ -514,10 +555,10 @@ const handler = createMcpHandler(
     installToolSecuritySchemeProjection(server);
   },
   {
-    serverInfo: { name: "gapwise-ai", version: "0.2.0" },
+    serverInfo: { name: "gapwise-ai", version: "0.3.0" },
     capabilities: { tools: {} },
     instructions:
-      "Use Gapwise tools as the source of truth for the user's delegated timetable, availability and deterministic gap assessments. For broad planning questions, start with get_my_decision_context. For requests to find time, use find_my_available_windows instead of doing free-time arithmetic yourself. Before proposing or creating a concrete personal block, use check_my_plan_feasibility on the exact interval. Read-tool text content deliberately includes essential structured facts for cross-client compatibility. Never invent missing classes, rooms, routes, availability, gap-plan facts, or write permissions. Academic meetings are read-only. When a delegated deterministic gap assessment exists, preserve its route status/confidence and treat its travel/buffer/leave-by/recommendation fields as authoritative Gapwise output. check_my_plan_feasibility does not validate arbitrary proposed locations, so do not claim location-specific route safety from it. After a write is queued, read again before making dependent changes because Gapwise applies queued actions against revisions.",
+      "Use Gapwise tools as the source of truth for the user's delegated timetable, availability and deterministic gap assessments. For broad planning questions, start with get_my_decision_context. For requests to find a usable block across the whole academic week, use find_my_weekly_opportunities; for one date/weekday use find_my_available_windows. Do not do free-time subtraction yourself. Before proposing a concrete personal block, use check_my_plan_feasibility on the exact interval. Fixed personal-item writes are also semantically revalidated server-side, so never bypass or argue with a conflict/transition rejection. Read-tool text content deliberately includes essential structured facts for cross-client compatibility. Never invent missing classes, rooms, routes, availability, gap-plan facts, or write permissions. Academic meetings are read-only. When a delegated deterministic gap assessment exists, preserve its route status/confidence and treat its travel/buffer/leave-by/recommendation/activity-budget fields as authoritative Gapwise output. check_my_plan_feasibility does not validate arbitrary proposed locations, so do not claim location-specific route safety from it. After a write is queued, read again before making dependent changes because Gapwise applies queued actions against revisions.",
     verboseLogs: false,
   },
 );
