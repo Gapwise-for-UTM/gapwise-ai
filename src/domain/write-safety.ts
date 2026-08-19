@@ -1,7 +1,17 @@
 import { checkPlanFeasibility } from "@/src/domain/decision";
 import type { AiAction, AiSnapshot, PersonalItem } from "@/src/domain/schemas";
 
-type FixedPersonalItem = Extract<PersonalItem, { flexibility: { kind: "fixed" } }>;
+type Term = AiSnapshot["schedule"][number]["term"];
+type Weekday = AiSnapshot["schedule"][number]["weekday"];
+
+type FixedCandidate = {
+  term: Term;
+  weekday: Weekday;
+  startTime: number;
+  endTime: number;
+  locationBuildingCode: string | null;
+  locationRoom: string | null;
+};
 
 type WriteSafetyResult =
   | {
@@ -15,10 +25,19 @@ type WriteSafetyResult =
       message: string;
     };
 
+function fixedTimes(value: PersonalItem): { startTime: number; endTime: number } | null {
+  if (value.flexibility.kind !== "fixed") return null;
+  if (!("startTime" in value) || !("endTime" in value)) return null;
+  if (typeof value.startTime !== "number" || typeof value.endTime !== "number") return null;
+  return { startTime: value.startTime, endTime: value.endTime };
+}
+
 function fixedCandidateFromCreate(
   action: Extract<AiAction, { kind: "create_personal_item" }>,
-): Pick<FixedPersonalItem, "term" | "weekday" | "startTime" | "endTime" | "locationBuildingCode" | "locationRoom"> | null {
+): FixedCandidate | null {
   if (action.item.flexibility.kind !== "fixed") return null;
+  if (!("startTime" in action.item) || !("endTime" in action.item)) return null;
+  if (typeof action.item.startTime !== "number" || typeof action.item.endTime !== "number") return null;
   return {
     term: action.item.term,
     weekday: action.item.weekday,
@@ -32,20 +51,16 @@ function fixedCandidateFromCreate(
 function fixedCandidateFromUpdate(
   snapshot: AiSnapshot,
   action: Extract<AiAction, { kind: "update_personal_item" }>,
-):
-  | Pick<FixedPersonalItem, "term" | "weekday" | "startTime" | "endTime" | "locationBuildingCode" | "locationRoom">
-  | null
-  | "invalid" {
+): FixedCandidate | null | "invalid" {
   const current = snapshot.personalItems.find((item) => item.id === action.itemId);
   if (!current) return "invalid";
 
   const flexibility = action.patch.flexibility ?? current.flexibility;
   if (flexibility.kind !== "fixed") return null;
 
-  const currentStart = current.flexibility.kind === "fixed" ? current.startTime : undefined;
-  const currentEnd = current.flexibility.kind === "fixed" ? current.endTime : undefined;
-  const startTime = action.patch.startTime ?? currentStart;
-  const endTime = action.patch.endTime ?? currentEnd;
+  const currentTimes = fixedTimes(current);
+  const startTime = action.patch.startTime ?? currentTimes?.startTime;
+  const endTime = action.patch.endTime ?? currentTimes?.endTime;
   if (startTime === undefined || endTime === undefined || endTime <= startTime) return "invalid";
 
   return {
@@ -64,7 +79,7 @@ function fixedCandidateFromUpdate(
 
 function safetyForFixedCandidate(
   snapshot: AiSnapshot,
-  candidate: Pick<FixedPersonalItem, "term" | "weekday" | "startTime" | "endTime" | "locationBuildingCode" | "locationRoom">,
+  candidate: FixedCandidate,
   excludePersonalItemId?: string,
 ): WriteSafetyResult {
   const validationSnapshot = excludePersonalItemId
