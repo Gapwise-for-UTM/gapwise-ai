@@ -3,18 +3,30 @@ import { z } from "zod";
 import {
   getUtmBuilding,
   listUtmBuildings,
+  planUtmGapWindow,
   PublicBuildingOutputSchema,
   PublicBuildingsOutputSchema,
+  PublicGapPlanOutputSchema,
   PublicRouteOutputSchema,
   routeBetweenUtmBuildings,
 } from "@/src/domain/public-campus";
+import { GapPreferencesPatchSchema, TermSchema, WeekdaySchema } from "@/src/domain/schemas";
 import {
   formatPublicBuilding,
   formatPublicBuildings,
+  formatPublicGapPlan,
   formatPublicRoute,
 } from "@/src/mcp/public-campus-formatters";
 
 type McpRegistrar = Parameters<Parameters<typeof createMcpHandler>[0]>[0];
+
+const routePreferencesSchema = z
+  .object({
+    mode: z.enum(["fastest", "prefer-indoor", "step-free"]).optional(),
+    walkingSpeedMps: z.number().min(0.5).max(3).optional(),
+    transitionBufferMinutes: z.number().int().min(0).max(60).optional(),
+  })
+  .strict();
 
 function ok(summary: string, value: Record<string, unknown>) {
   return {
@@ -95,6 +107,40 @@ export function registerPublicCampusTools(server: McpRegistrar): void {
       try {
         const value = await routeBetweenUtmBuildings(args);
         return ok(formatPublicRoute(value.route), value);
+      } catch (error) {
+        return failure(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "plan_utm_gap_window",
+    {
+      title: "Plan a UTM gap window with Gapwise",
+      description:
+        "Run Gapwise's deterministic gap-assessment engine for an explicit free window between two canonical UTM building boundaries. It combines Gapwise routing, transition buffer, setup/pack-up, meal-window, commute and risk preferences to return the authoritative activity budget, recommendation, alternatives, leave-by/arrival time, confidence and warnings. This is stateless and does not discover the user's free time: use the delegated availability tools first for personalized planning, then pass an exact window and any explicitly delegated preferences here. Do not replace the result with model arithmetic.",
+      inputSchema: z
+        .object({
+          from: z.string().min(1).max(240),
+          to: z.string().min(1).max(240),
+          term: TermSchema,
+          weekday: WeekdaySchema,
+          startTime: z.number().int().min(0).max(1440),
+          endTime: z.number().int().min(0).max(1440),
+          routePreferences: routePreferencesSchema.optional(),
+          gapPreferences: GapPreferencesPatchSchema.optional(),
+        })
+        .strict()
+        .refine((value) => value.endTime > value.startTime, {
+          message: "endTime must be after startTime",
+        }),
+      outputSchema: PublicGapPlanOutputSchema,
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => {
+      try {
+        const value = await planUtmGapWindow(args);
+        return ok(formatPublicGapPlan(value.gapPlan), value);
       } catch (error) {
         return failure(error);
       }
