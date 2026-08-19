@@ -100,8 +100,11 @@ const snapshot: AiSnapshot = {
 describe("delegated schedule queries", () => {
   it("uses source-backed dates and exclusions", () => {
     expect(daySchedule(snapshot, "2026-09-07").meetings).toHaveLength(2);
+    expect(daySchedule(snapshot, "2026-09-07").gapPlans).toHaveLength(1);
     expect(daySchedule(snapshot, "2026-10-12").meetings).toHaveLength(1);
+    expect(daySchedule(snapshot, "2026-10-12").gapPlans).toHaveLength(0);
     expect(daySchedule(snapshot, "2026-12-14").meetings).toHaveLength(0);
+    expect(daySchedule(snapshot, "2026-12-14").gapPlans).toHaveLength(0);
   });
 
   it("does not invent weekend meetings", () => {

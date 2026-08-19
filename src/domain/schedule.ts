@@ -79,8 +79,18 @@ export function daySchedule(snapshot: AiSnapshot, date: string) {
           return aStart - bStart;
         })
     : [];
+  const occurringBoundaryIds = new Set([
+    ...meetings.map((meeting) => meeting.id),
+    ...personalItems.filter(isFixedPersonal).map((item) => item.id),
+  ]);
   const gapPlans = snapshot.permissions.readGapPlans
-    ? snapshot.gapPlans.filter((plan) => plan.term === term && plan.weekday === weekday)
+    ? snapshot.gapPlans.filter(
+        (plan) =>
+          plan.term === term &&
+          plan.weekday === weekday &&
+          occurringBoundaryIds.has(plan.previousMeetingId) &&
+          occurringBoundaryIds.has(plan.nextMeetingId),
+      )
     : [];
   return {
     date,
