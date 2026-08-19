@@ -142,6 +142,43 @@ export const AvailabilityOutputSchema = z
   })
   .strict();
 
+export const WeeklyAvailabilityOutputSchema = z
+  .object({
+    revision,
+    generatedAt: isoDateTime,
+    term: TermSchema,
+    minimumDurationMinutes: z.number().int().min(1).max(1440),
+    searchBounds: z
+      .object({ startTime: minute, endTime: minute })
+      .strict()
+      .nullable(),
+    windows: z
+      .array(
+        z
+          .object({
+            weekday: WeekdaySchema,
+            startTime: minute,
+            endTime: minute,
+            rawDurationMinutes: z.number().int().min(1).max(1440),
+            usableActivityMinutes: z.number().int().min(0).max(1440),
+            planningValidation: z.enum([
+              "gapwise_activity_budget",
+              "gapwise_transition_unavailable",
+              "temporal_only",
+            ]),
+            previousBoundary: DecisionBoundarySchema.nullable(),
+            nextBoundary: DecisionBoundarySchema.nullable(),
+            flexiblePersonalItems: z.array(FlexiblePersonalSummarySchema).max(200),
+            gapPlan: GapPlanSchema.nullable(),
+          })
+          .strict(),
+      )
+      .max(20),
+    status: z.enum(["available_windows_found", "no_matching_window"]),
+    interpretation: z.string().min(1).max(2000),
+  })
+  .strict();
+
 const GapwiseActivityWindowSchema = z
   .object({
     startTime: minute,
