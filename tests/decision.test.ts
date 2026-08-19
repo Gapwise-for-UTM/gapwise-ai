@@ -195,7 +195,7 @@ describe("Gapwise decision engine", () => {
     expect(result.conflicts[0]?.id).toBe("mat");
   });
 
-  it("validates a block against the authoritative Gapwise activity and leave-by budget", () => {
+  it("validates a block inside the authoritative Gapwise activity envelope", () => {
     const result = checkPlanFeasibility(snapshot, {
       scope: { kind: "term_weekday", term: "Fall", weekday: "Monday" },
       startTime: 665,
@@ -205,9 +205,15 @@ describe("Gapwise decision engine", () => {
     expect(result.feasible).toBe(true);
     expect(result.validationLevel).toBe("gapwise_transition_validated");
     expect(result.gapPlan?.assessment.leaveByMinutes).toBe(760);
+    expect(result.gapwiseActivityWindow).toEqual({
+      startTime: 660,
+      endTime: 760,
+      maxActivityMinutes: 100,
+      source: "primary_timeline",
+    });
   });
 
-  it("rejects a conflict-free block that overruns the Gapwise leave-by constraint", () => {
+  it("rejects a conflict-free block that overruns the Gapwise activity envelope", () => {
     const result = checkPlanFeasibility(snapshot, {
       scope: { kind: "term_weekday", term: "Fall", weekday: "Monday" },
       startTime: 665,
@@ -216,7 +222,55 @@ describe("Gapwise decision engine", () => {
 
     expect(result.feasible).toBe(false);
     expect(result.validationLevel).toBe("gapwise_transition_rejected");
-    expect(result.reasons.join(" ")).toContain("leave-by");
+    expect(result.reasons.join(" ")).toContain("activity envelope ends");
+  });
+
+  it("preserves setup time instead of letting a model consume it as activity", () => {
+    const withSetup: AiSnapshot = {
+      ...snapshot,
+      gapPlans: snapshot.gapPlans.map((plan) => ({
+        ...plan,
+        assessment: {
+          ...plan.assessment,
+          primary: {
+            ...plan.assessment.primary,
+            activityMinutes: 103,
+            timeline: [
+              { kind: "setup", label: "Settle in", minutes: 4 },
+              { kind: "activity", label: "Focused study", minutes: 103 },
+              { kind: "setup", label: "Pack up", minutes: 3 },
+              { kind: "travel", label: "Travel", minutes: 3 },
+              { kind: "buffer", label: "Buffer", minutes: 7 },
+            ],
+          },
+          travelMinutes: 3,
+          bufferMinutes: 7,
+          leaveByMinutes: 770,
+          arrivalMinutes: 773,
+        },
+      })),
+    };
+
+    const tooEarly = checkPlanFeasibility(withSetup, {
+      scope: { kind: "term_weekday", term: "Fall", weekday: "Monday" },
+      startTime: 660,
+      endTime: 750,
+    });
+    expect(tooEarly.feasible).toBe(false);
+    expect(tooEarly.gapwiseActivityWindow).toEqual({
+      startTime: 664,
+      endTime: 767,
+      maxActivityMinutes: 103,
+      source: "primary_timeline",
+    });
+
+    const valid = checkPlanFeasibility(withSetup, {
+      scope: { kind: "term_weekday", term: "Fall", weekday: "Monday" },
+      startTime: 664,
+      endTime: 754,
+    });
+    expect(valid.feasible).toBe(true);
+    expect(valid.validationLevel).toBe("gapwise_transition_validated");
   });
 
   it("summarizes the term for planning without losing authoritative gap data", () => {
