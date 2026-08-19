@@ -24,7 +24,8 @@ The provider-neutral Streamable HTTP MCP endpoint is `POST /api/mcp` (with proto
 - `get_my_gap_plan` — exact precomputed Gapwise assessment for a named gap window.
 - `get_my_ai_preferences` — only planning/routing preferences the user explicitly delegated.
 - `get_my_decision_context` — compact term-level planning context: hard schedule load, Gapwise gap opportunities, route uncertainty, freshness/revision, and delegated preferences.
-- `find_my_available_windows` — source-backed free windows using academic meetings and delegated fixed personal items as hard constraints. Flexible items are reported as soft competing constraints. Without explicit day bounds, it intentionally returns only windows bounded by hard events rather than assuming wake/sleep or edge-of-day availability.
+- `find_my_available_windows` — source-backed free windows for one date or one term weekday using academic meetings and delegated fixed personal items as hard constraints. Flexible items are reported as soft competing constraints. Without explicit day bounds, it intentionally returns only windows bounded by hard events rather than assuming wake/sleep or edge-of-day availability.
+- `find_my_weekly_opportunities` — searches Monday–Friday in one call. For a window covered by a delegated deterministic Gapwise gap assessment, `usableActivityMinutes` is capped by Gapwise's primary activity budget rather than raw free time, and an unavailable transition route yields zero validated activity minutes. A window without a delegated gap assessment is explicitly marked `temporal_only`.
 - `check_my_plan_feasibility` — validates a proposed personal block against hard conflicts and, when a delegated Gapwise gap contains it, the authoritative primary activity envelope and transition route state. Proposed arbitrary locations are not route-validated by this tool.
 
 ### Write tools
@@ -36,8 +37,12 @@ The provider-neutral Streamable HTTP MCP endpoint is `POST /api/mcp` (with proto
 
 Writes remain permission-gated, typed, revision-checked, idempotent queued actions. Imported academic meetings are never writable.
 
+Fixed personal-item creates and updates also receive service-layer semantic validation before they are queued. A client cannot bypass this by skipping the read-only feasibility tool: Gapwise rejects delegated hard timetable conflicts and known deterministic transition/activity-envelope violations. Conflict-free blocks outside a delegated Gapwise gap may still be accepted as temporal-only because their surrounding travel is not known to be unsafe; clients must not describe those as route-validated.
+
 ## Planning orchestration contract
 
-For broad planning requests, clients should start with `get_my_decision_context`. To find time, clients should call `find_my_available_windows` rather than doing schedule subtraction themselves. Before proposing or writing a concrete personal block, clients should call `check_my_plan_feasibility` on the exact interval.
+For broad planning requests, clients should start with `get_my_decision_context`. For a whole-term-week search such as “find 90 minutes for studying,” clients should use `find_my_weekly_opportunities`; for one date or weekday, use `find_my_available_windows`. Models should not subtract timetable intervals themselves.
 
-Gapwise-owned deterministic facts remain authoritative: recurrence/exclusions, hard conflicts, gap activity budgets, setup/pack-up envelopes, route status/accuracy/confidence, buffers, and leave-by/arrival times. A model may reason about user goals and tradeoffs, but it must not upgrade missing or approximate Gapwise data into invented certainty.
+Before proposing a concrete personal block, clients should call `check_my_plan_feasibility` on the exact interval. Fixed-item writes are independently revalidated server-side, so a conflict or transition rejection is authoritative even if the client believed the block was feasible.
+
+Gapwise-owned deterministic facts remain authoritative: recurrence/exclusions, hard conflicts, raw versus usable gap time, gap activity budgets, setup/pack-up envelopes, route status/accuracy/confidence, buffers, and leave-by/arrival times. A model may reason about user goals and tradeoffs, but it must not upgrade missing or approximate Gapwise data into invented certainty.
