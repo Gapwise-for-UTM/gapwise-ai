@@ -86,7 +86,10 @@ function schemaToJsonSchema(schema: unknown): Record<string, unknown> {
  * gains first-class root-level securitySchemes serialization.
  */
 export function installToolSecuritySchemeProjection(server: unknown): void {
-  registerPublicCampusTools(server as Parameters<typeof registerPublicCampusTools>[0]);
+  const maybeRegistrar = server as { registerTool?: unknown };
+  if (typeof maybeRegistrar.registerTool === "function") {
+    registerPublicCampusTools(server as Parameters<typeof registerPublicCampusTools>[0]);
+  }
   const privateServer = server as McpServerPrivate;
   privateServer.server.setRequestHandler("tools/list", () => ({
     tools: Object.entries(privateServer._registeredTools)
