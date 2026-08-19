@@ -164,6 +164,41 @@ function containingGapPlan(data: ScopedData, startTime: number, endTime: number)
   );
 }
 
+function primaryActivityEnvelope(plan: GapPlan) {
+  const timeline = plan.assessment.primary.timeline;
+  const activityIndexes = timeline
+    .map((item, index) => (item.kind === "activity" || item.kind === "flex" ? index : -1))
+    .filter((index) => index >= 0);
+  const maxActivityMinutes = plan.assessment.primary.activityMinutes;
+  if (!activityIndexes.length) {
+    return {
+      startTime: plan.startTime,
+      endTime: Math.min(plan.endTime, plan.assessment.leaveByMinutes),
+      maxActivityMinutes,
+      source: "leave_by_fallback" as const,
+    };
+  }
+
+  const first = activityIndexes[0]!;
+  const last = activityIndexes.at(-1)!;
+  const leadingMinutes = timeline
+    .slice(0, first)
+    .reduce((total, item) => total + item.minutes, 0);
+  const throughActivityMinutes = timeline
+    .slice(0, last + 1)
+    .reduce((total, item) => total + item.minutes, 0);
+  return {
+    startTime: Math.min(plan.endTime, plan.startTime + leadingMinutes),
+    endTime: Math.min(
+      plan.endTime,
+      plan.assessment.leaveByMinutes,
+      plan.startTime + throughActivityMinutes,
+    ),
+    maxActivityMinutes,
+    source: "primary_timeline" as const,
+  };
+}
+
 export function findAvailableWindows(snapshot: AiSnapshot, query: AvailabilityQuery) {
   const data = scopeData(snapshot, query.scope);
   if (!data.weekday) {
@@ -271,6 +306,7 @@ export function checkPlanFeasibility(snapshot: AiSnapshot, query: PlanFeasibilit
   const previous = previousBoundary(hardBoundaries, query.startTime);
   const next = nextBoundary(hardBoundaries, query.endTime);
   const gapPlan = containingGapPlan(data, query.startTime, query.endTime);
+  const activityWindow = gapPlan ? primaryActivityEnvelope(gapPlan) : null;
   const requestedDurationMinutes = query.endTime - query.startTime;
 
   let validationLevel:
@@ -286,20 +322,30 @@ export function checkPlanFeasibility(snapshot: AiSnapshot, query: PlanFeasibilit
     validationLevel = "conflict";
     feasible = false;
     reasons.push("The proposed block overlaps one or more delegated hard timetable boundaries.");
-  } else if (gapPlan) {
-    const withinActivityBudget = requestedDurationMinutes <= gapPlan.assessment.primary.activityMinutes;
-    const endsByLeaveBy = query.endTime <= gapPlan.assessment.leaveByMinutes;
+  } else if (gapPlan && activityWindow) {
+    const withinActivityBudget = requestedDurationMinutes <= activityWindow.maxActivityMinutes;
+    const startsInsideActivityWindow = query.startTime >= activityWindow.startTime;
+    const endsInsideActivityWindow = query.endTime <= activityWindow.endTime;
     const routeUsable = gapPlan.assessment.routeStatus !== "unavailable";
-    feasible = withinActivityBudget && endsByLeaveBy && routeUsable;
+    feasible =
+      withinActivityBudget &&
+      startsInsideActivityWindow &&
+      endsInsideActivityWindow &&
+      routeUsable;
     validationLevel = feasible ? "gapwise_transition_validated" : "gapwise_transition_rejected";
     if (!withinActivityBudget) {
       reasons.push(
-        `The block needs ${requestedDurationMinutes} min but Gapwise exposes ${gapPlan.assessment.primary.activityMinutes} min of activity budget in this gap.`,
+        `The block needs ${requestedDurationMinutes} min but Gapwise exposes ${activityWindow.maxActivityMinutes} min of activity budget in this gap.`,
       );
     }
-    if (!endsByLeaveBy) {
+    if (!startsInsideActivityWindow) {
       reasons.push(
-        `The block ends after Gapwise's authoritative leave-by time of ${gapPlan.assessment.leaveByMinutes} minutes after midnight.`,
+        `The block starts before Gapwise's primary activity envelope begins at ${activityWindow.startTime} minutes after midnight.`,
+      );
+    }
+    if (!endsInsideActivityWindow) {
+      reasons.push(
+        `The block ends after Gapwise's primary activity envelope ends at ${activityWindow.endTime} minutes after midnight.`,
       );
     }
     if (!routeUsable) {
@@ -307,7 +353,7 @@ export function checkPlanFeasibility(snapshot: AiSnapshot, query: PlanFeasibilit
     }
     if (feasible) {
       reasons.push(
-        "The block fits inside a delegated Gapwise gap without exceeding its activity budget or leave-by constraint.",
+        "The block fits inside Gapwise's delegated primary activity envelope while preserving its authoritative transition constraints.",
       );
     }
     warnings.push(...gapPlan.assessment.warnings);
@@ -324,7 +370,7 @@ export function checkPlanFeasibility(snapshot: AiSnapshot, query: PlanFeasibilit
       ? {
           buildingCode: query.locationBuildingCode ?? null,
           room: query.locationRoom ?? null,
-          validated: false,
+          validated: false as const,
         }
       : null;
   if (requestedLocation) {
@@ -357,6 +403,7 @@ export function checkPlanFeasibility(snapshot: AiSnapshot, query: PlanFeasibilit
     previousBoundary: previous,
     nextBoundary: next,
     gapPlan,
+    gapwiseActivityWindow: activityWindow,
     reasons,
     warnings: [...new Set(warnings)].slice(0, 24),
   };
