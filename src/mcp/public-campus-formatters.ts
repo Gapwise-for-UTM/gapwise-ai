@@ -1,4 +1,8 @@
-import type { PublicBuilding, PublicRoute } from "@/src/domain/public-campus";
+import type {
+  PublicBuilding,
+  PublicGapPlan,
+  PublicRoute,
+} from "@/src/domain/public-campus";
 
 function seconds(value: number | null) {
   if (value === null) return "unknown";
@@ -9,6 +13,14 @@ function seconds(value: number | null) {
 
 function meters(value: number | null) {
   return value === null ? "unknown" : `${Math.round(value)} m`;
+}
+
+function clock(minutes: number | null) {
+  if (minutes === null) return "unknown";
+  const normalized = ((minutes % 1440) + 1440) % 1440;
+  const hours = Math.floor(normalized / 60);
+  const mins = normalized % 60;
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
 }
 
 export function formatPublicBuildings(buildings: PublicBuilding[]) {
@@ -49,5 +61,31 @@ export function formatPublicRoute(route: PublicRoute) {
     `Preferences used: mode ${route.preferences.mode}, walking speed ${route.preferences.walkingSpeedMps} m/s, transition buffer ${route.preferences.transitionBufferMinutes} min.`,
     `Warnings: ${warnings}.`,
     "Treat Gapwise route status, accuracy, verification and warnings as authoritative. Do not upgrade approximate/unavailable/accessibility-unknown results into verified claims.",
+  ].join("\n");
+}
+
+export function formatPublicGapPlan(plan: PublicGapPlan) {
+  const primary = plan.assessment.primary;
+  const alternatives = plan.assessment.alternatives
+    .map(
+      (option, index) =>
+        `Alt ${index + 1}: ${option.title}; ${option.activityMinutes} activity min; score ${Math.round(option.score)}.`,
+    )
+    .join("\n");
+  const timeline = primary.timeline
+    .map((segment) => `${segment.label} ${segment.minutes} min`)
+    .join(" → ");
+  const warnings = plan.assessment.warnings.length
+    ? plan.assessment.warnings.join(" | ")
+    : "none";
+  return [
+    `Gapwise simulated gap: ${plan.gap.weekday} ${clock(plan.gap.startTime)}–${clock(plan.gap.endTime)} (${plan.gap.durationMinutes} min), ${plan.gap.from.code} → ${plan.gap.to.code}.`,
+    `Primary: ${primary.title} (${primary.action}); ${primary.activityMinutes} activity min; score ${Math.round(primary.score)}. ${primary.summary}`,
+    `Reasons: ${primary.reasons.join(" | ")}.`,
+    `Timeline: ${timeline || "none"}.`,
+    `Transition: route ${plan.assessment.routeStatus}; accuracy ${plan.assessment.routeAccuracy}; travel ${plan.assessment.travelMinutes ?? "unknown"} min; buffer ${plan.assessment.bufferMinutes} min; leave by ${clock(plan.assessment.leaveByMinutes)}; expected arrival ${clock(plan.assessment.arrivalMinutes)}; confidence ${plan.assessment.confidenceLabel} (${Math.round(plan.assessment.confidence * 100)}%).`,
+    `Warnings: ${warnings}.`,
+    alternatives || "Alternatives: none.",
+    "This is Gapwise's deterministic gap assessment for the supplied boundaries and preferences. Treat it as authoritative computation; do not replace its travel, buffer, activity budget, confidence or warnings with model arithmetic.",
   ].join("\n");
 }
