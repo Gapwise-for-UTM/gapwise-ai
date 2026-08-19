@@ -102,6 +102,11 @@ export function formatPlanFeasibility(value: PlanFeasibility): string {
   } else {
     lines.push("No delegated Gapwise gap assessment contains this proposed block, so transition safety is not validated beyond timetable overlap checks.");
   }
+  if (value.gapwiseActivityWindow) {
+    lines.push(
+      `Gapwise primary activity envelope: ${clock(value.gapwiseActivityWindow.startTime)}–${clock(value.gapwiseActivityWindow.endTime)} (max ${value.gapwiseActivityWindow.maxActivityMinutes} activity min; ${value.gapwiseActivityWindow.source}).`,
+    );
+  }
   if (value.reasons.length) lines.push("Reasons:", ...value.reasons.map((reason) => `- ${reason}`));
   if (value.flexiblePersonalItems.length) {
     lines.push(
