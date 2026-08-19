@@ -9,6 +9,7 @@ import {
   type AiAction,
   type AiSnapshot,
 } from "@/src/domain/schemas";
+import { validateAiActionSemantics } from "@/src/domain/write-safety";
 import {
   RestRequestError,
   completeActionRow,
@@ -183,6 +184,14 @@ export async function queueAction(
     );
   }
   requirePermission(snapshot, action);
+
+  const semanticSafety = validateAiActionSemantics(snapshot, action);
+  if (!semanticSafety.allowed) {
+    throw new DelegationError(
+      semanticSafety.code === "invalid_personal_item" ? "invalid_data" : "conflict",
+      semanticSafety.message,
+    );
+  }
 
   const outstanding = await listQueuedActions(caller, 50);
   if (outstanding.length >= 50) {
