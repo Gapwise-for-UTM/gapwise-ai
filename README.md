@@ -9,7 +9,6 @@
 **The provider-neutral MCP integration layer for authorized access to explicitly delegated Gapwise student context.**
 
 [![AI Service](https://img.shields.io/badge/AI_Service-ai.gapwise.ca-8B5CF6?style=for-the-badge&logo=vercel&logoColor=white)](https://ai.gapwise.ca/api/health)
-[![CI](https://img.shields.io/github/actions/workflow/status/andrewmuratov/gapwise-ai/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/andrewmuratov/gapwise-ai/actions/workflows/ci.yml)
 [![MCP](https://img.shields.io/badge/MCP-Streamable_HTTP-8B5CF6?style=for-the-badge)](https://ai.gapwise.ca/api/mcp)
 [![MIT](https://img.shields.io/badge/License-MIT-111111?style=for-the-badge)](LICENSE)
 
