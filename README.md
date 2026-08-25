@@ -9,6 +9,7 @@
 **The provider-neutral MCP integration layer for authorized access to explicitly delegated Gapwise student context.**
 
 [![AI Service](https://img.shields.io/badge/AI_Service-ai.gapwise.ca-8B5CF6?style=for-the-badge&logo=vercel&logoColor=white)](https://ai.gapwise.ca/api/health)
+[![CI](https://img.shields.io/github/actions/workflow/status/andrewmuratov/gapwise-ai/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/andrewmuratov/gapwise-ai/actions/workflows/ci.yml)
 [![MCP](https://img.shields.io/badge/MCP-Streamable_HTTP-8B5CF6?style=for-the-badge)](https://ai.gapwise.ca/api/mcp)
 [![MIT](https://img.shields.io/badge/License-MIT-111111?style=for-the-badge)](LICENSE)
 
@@ -34,16 +35,16 @@ It is not a second implementation of the Gapwise timetable, routing, or gap-plan
 | [`andrewmuratov/gapwise-docs`](https://github.com/andrewmuratov/gapwise-docs) | Public developer documentation for the Gapwise API, OpenAPI contract, and SDK surface |
 | **`andrewmuratov/gapwise-ai`** | Permissioned MCP layer for explicitly delegated student context and bounded AI-facing actions |
 
-The architectural rule is the same across the ecosystem: **Gapwise owns the facts and deterministic calculations; AI clients reason over those facts without silently recreating them.**
+The architectural rule across the ecosystem is simple: **Gapwise owns the facts and deterministic calculations; AI clients reason over those facts without silently recreating them.**
 
 > [!IMPORTANT]
-> **Release status: private release candidate.** The production service is configured around `https://ai.gapwise.ca`, but the repository intentionally remains private while real external OAuth/read/write/revoke validation and the final pre-publication secret/history scan remain release gates. Do not interpret the presence of ChatGPT/Claude integration documentation as a claim of universal client support. See [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
+> **Release status: public release candidate.** The source repository is public and the production service is configured around `https://ai.gapwise.ca`. Real external OAuth/read/write/revoke validation remains a gate before claiming broad ChatGPT, Claude, or other MCP-client support. See [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
 
 ---
 
-## What runs here
+## Runtime and architecture
 
-Gapwise AI is a **Next.js 16** server application running on **Node.js 24** and deployed separately from the main Gapwise app. It uses the Model Context Protocol server stack, Zod schemas, caller-scoped Supabase access, and a separate AES-256-GCM encryption domain for delegated payloads.
+Gapwise AI is a **Next.js 16** server application running on **Node.js 24** and deployed separately from the main Gapwise app. It uses MCP, Zod schemas, caller-scoped Supabase access, and a separate AES-256-GCM encryption domain for delegated payloads.
 
 There is **no server-side LLM provider in this repository**. Gapwise AI does not call OpenAI, Anthropic, or another model API to generate answers. Compatible MCP clients supply the model/reasoning layer. The optional `GAPWISE_OPENAI_APPS_CHALLENGE_TOKEN` is only for first-party domain verification during an OpenAI app submission flow; it is not a model API key.
 
@@ -72,13 +73,13 @@ The browser remains canonical for academic meetings and the primary encrypted pr
 
 ## Current MCP surface
 
-The current `app/api/mcp/route.ts` registers **13 permissioned tools**: nine read/status/planning tools and four bounded write tools. Tool discovery is provider-neutral; private calls require verified OAuth context and an enabled delegation with the necessary permissions.
+The current `app/api/mcp/route.ts` registers **13 permissioned tools**: nine read/status/planning tools and four bounded write tools.
 
-### Read, status, and planning tools
+### Read, status, and planning
 
 | Tool | Purpose |
 | --- | --- |
-| `get_ai_delegation_status` | Report delegation state, revision, and permissions without returning timetable content |
+| `get_ai_delegation_status` | Report delegation state, revision, and permissions without timetable content |
 | `get_my_day` | Return source-backed meetings, delegated personal items, and delegated deterministic gap context for one date |
 | `get_my_week` | Return the normalized delegated timetable for one academic term |
 | `get_my_gap_plan` | Return an exact precomputed delegated Gapwise gap assessment |
@@ -88,7 +89,7 @@ The current `app/api/mcp/route.ts` registers **13 permissioned tools**: nine rea
 | `find_my_weekly_opportunities` | Search Monday–Friday for usable windows while respecting delegated Gapwise activity budgets |
 | `check_my_plan_feasibility` | Check a proposed personal block against hard conflicts and known delegated Gapwise constraints |
 
-### Bounded write tools
+### Bounded writes
 
 | Tool | Purpose |
 | --- | --- |
@@ -99,83 +100,41 @@ The current `app/api/mcp/route.ts` registers **13 permissioned tools**: nine rea
 
 Imported/source-backed academic meetings are intentionally **read-only** to AI.
 
-The repository also contains `src/mcp/public-campus-tools.ts`, which defines four stateless public-campus tool registrations backed by Gapwise's deterministic campus API. That module is **not currently registered by the live MCP handler**, so this README does not count or advertise those four definitions as exposed tools. Wiring that module into the production handler would be a runtime change and should be validated separately from this branding/documentation update.
+The repository also contains `src/mcp/public-campus-tools.ts`, which defines four stateless public-campus tool registrations backed by Gapwise's deterministic campus API. That module is **not currently registered by the live MCP handler**, so those definitions are not counted or advertised as exposed tools. Wiring them in is a runtime/security change and should be validated separately.
 
 ---
 
-## Grounding contract
+## Grounding, privacy, and safety
 
-Gapwise AI keeps two kinds of output distinct:
+Gapwise AI keeps **Gapwise-grounded facts** distinct from **assistant advice or inference**. Schedule arithmetic, recurrence/exclusions, deterministic gap assessments, activity budgets, route status/accuracy, transition buffers, and leave-by/arrival values must not be silently recomputed or upgraded by a model when Gapwise already supplies them.
 
-- **Gapwise-grounded facts** — values actually returned by Gapwise or present in the explicitly delegated snapshot;
-- **assistant advice/inference** — conclusions, prioritization, explanations, or outside knowledge supplied by the client model.
+The delegated snapshot excludes raw ACORN `.ics` files, friend/friend-overlap data, precise/live location, Supabase access or refresh tokens, Gapwise's primary private-data DEK/KEK, unrestricted database credentials, and unrelated browser state.
 
-Schedule arithmetic, recurrence/exclusions, deterministic gap assessments, activity budgets, routing status/accuracy, transition buffers, and leave-by/arrival values must not be recomputed or upgraded by the model when Gapwise already supplies them.
+Delegated snapshots and queued actions are encrypted before database storage with a separate **AES-256-GCM** key supplied by `GAPWISE_AI_DATA_KEY`. Database requests use the Supabase publishable key plus the authenticated caller's bearer token. This is **not zero-knowledge encryption**: authorized plaintext exists transiently in the Gapwise AI runtime while an authorized tool request is processed.
 
-Unknown, approximate, unavailable, and accessibility-unverified states remain visible rather than being rewritten as confident guesses.
+Write safety is deliberately narrow: academic meetings cannot be mutated; personal-item/preference writes require explicit permission and the expected snapshot revision; retries may use bounded idempotency keys; fixed personal-item writes are revalidated before queueing; and revocation removes delegated state/actions so later private access fails closed.
 
----
-
-## Privacy and safety boundaries
-
-AI access is explicit opt-in and separate from ordinary Gapwise sign-in. The delegated snapshot is intentionally narrower than the user's full Gapwise state.
-
-It excludes:
-
-- raw ACORN `.ics` files;
-- friend/friend-overlap data;
-- precise or live location;
-- Supabase access or refresh tokens;
-- Gapwise's primary private-data DEK/KEK;
-- credentials or unrestricted database access;
-- unrelated browser state.
-
-Delegated snapshots and queued actions are encrypted before database storage with a separate **AES-256-GCM** key supplied by `GAPWISE_AI_DATA_KEY`. Database requests use the Supabase publishable key plus the authenticated caller's bearer token; the runtime does not require a Supabase service-role key for its normal MCP/delegation data path.
-
-This is **not zero-knowledge encryption**: authorized plaintext exists transiently in the Gapwise AI runtime while an authorized tool request is processed. The trust boundary is documented in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/PRIVACY.md`](docs/PRIVACY.md), and [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
-
-Write safety is deliberately narrow:
-
-- academic meetings cannot be mutated;
-- personal-item/preference writes require explicit permission;
-- writes carry the expected snapshot revision;
-- retries can use bounded idempotency keys;
-- fixed personal-item writes are revalidated against delegated hard conflicts and known Gapwise constraints before queueing;
-- revocation removes delegated state/actions and later private access fails closed.
+See [`docs/PRIVACY.md`](docs/PRIVACY.md) and [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) for the precise boundary.
 
 ---
 
 ## Service endpoints
 
-Canonical production origin:
-
-```text
-https://ai.gapwise.ca
-```
-
 | Endpoint | Purpose |
 | --- | --- |
-| `https://ai.gapwise.ca/api/mcp` | Streamable HTTP MCP endpoint |
+| `https://ai.gapwise.ca/api/mcp` | Canonical Streamable HTTP MCP endpoint |
 | `https://ai.gapwise.ca/.well-known/oauth-protected-resource` | OAuth protected-resource metadata |
 | `https://ai.gapwise.ca/api/health` | Service/configuration health endpoint |
 
-`gapwise-ai.vercel.app` remains a documented infrastructure fallback alias in deployment/configuration code, but public clients and documentation should use the first-party `ai.gapwise.ca` origin.
+`gapwise-ai.vercel.app` remains an infrastructure fallback alias in deployment/configuration code. Public clients and documentation use the first-party `ai.gapwise.ca` origin.
 
-The main Gapwise developer surface remains:
-
-- Developer hub: `https://gapwise.ca/developers`
-- Public API base: `https://api.gapwise.ca/v1`
-- OpenAPI 3.1: `https://api.gapwise.ca/openapi.json`
+The main Gapwise developer surface is available at `https://gapwise.ca/developers`, with API base `https://api.gapwise.ca/v1` and OpenAPI 3.1 contract at `https://api.gapwise.ca/openapi.json`.
 
 ---
 
 ## Local development
 
-Requirements:
-
-- **Node.js 24.x**
-- **npm** (the repository is locked with `package-lock.json`)
-- a Supabase project compatible with the documented Gapwise AI schema for authenticated/delegation flows
+Requirements: **Node.js 24.x**, **npm**, and a Supabase project compatible with the documented Gapwise AI schema for authenticated/delegation flows.
 
 ```bash
 git clone https://github.com/andrewmuratov/gapwise-ai.git
@@ -186,33 +145,20 @@ npm run check
 npm run dev
 ```
 
-`npm run check` runs the repository's local release-oriented checks in this order:
+`npm run check` runs TypeScript typecheck, Vitest, and a Next.js production build. CI additionally runs `npm audit --omit=dev --audit-level=high`.
 
-```text
-TypeScript typecheck → Vitest unit tests → Next.js production build
-```
-
-GitHub Actions additionally runs `npm audit --omit=dev --audit-level=high` before the production build.
-
-### Environment variables
+### Environment
 
 Required server-side variables:
 
 | Variable | Purpose |
 | --- | --- |
-| `GAPWISE_SUPABASE_URL` | Supabase project origin used for Auth and caller-scoped REST access |
+| `GAPWISE_SUPABASE_URL` | Supabase project origin for Auth and caller-scoped REST access |
 | `GAPWISE_SUPABASE_PUBLISHABLE_KEY` | Non-service-role publishable key forwarded with caller-scoped requests |
-| `GAPWISE_AI_DATA_KEY` | Base64/Base64url encoding of exactly 32 random bytes for the separate AI encryption domain |
-| `GAPWISE_APP_ORIGIN` | Exact first-party Gapwise browser origin allowed by the delegation API; production is `https://gapwise.ca` |
+| `GAPWISE_AI_DATA_KEY` | Base64/Base64url encoding of exactly 32 random bytes for the AI encryption domain |
+| `GAPWISE_APP_ORIGIN` | Exact first-party Gapwise browser origin; production is `https://gapwise.ca` |
 
-Optional variables:
-
-| Variable | Purpose |
-| --- | --- |
-| `GAPWISE_AI_ORIGIN` | Override the externally visible AI origin for alternate/self-hosted deployments |
-| `GAPWISE_OPENAI_APPS_CHALLENGE_TOKEN` | Temporary OpenAI app-domain verification token when a submission flow requests it |
-
-Never place credentials, OAuth secrets, encryption keys, or private server configuration in `NEXT_PUBLIC_*` variables. See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for the complete contract.
+Optional: `GAPWISE_AI_ORIGIN` for alternate/self-hosted deployments and `GAPWISE_OPENAI_APPS_CHALLENGE_TOKEN` for temporary OpenAI domain verification. Never put credentials or encryption keys in `NEXT_PUBLIC_*` variables. See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md).
 
 ---
 
@@ -220,44 +166,37 @@ Never place credentials, OAuth secrets, encryption keys, or private server confi
 
 ```text
 app/                  Next.js routes: MCP, delegation bridge, metadata, health
-public/               Gapwise AI purple logo and favicon assets
+public/               purple Gapwise AI logo and favicon assets
 src/auth/             bearer-token verification + MCP/OAuth metadata
 src/crypto/           delegated-payload AES-256-GCM envelope encryption
 src/db/               caller-scoped Supabase REST adapter
-src/delegation/       permissions, revisions, revocation, and queued actions
+src/delegation/       permissions, revisions, revocation, queued actions
 src/domain/           schemas + deterministic schedule/decision queries
 src/mcp/              MCP formatting plus public-campus tool definitions
 src/http/             bounded request/response and CORS helpers
 src/openai/           optional OpenAI domain-verification challenge helper
-tests/                authorization, grounding, crypto, domain, and safety regressions
-docs/                 architecture, privacy, deployment, operations, and contracts
+tests/                authorization, grounding, crypto, domain, safety regressions
+docs/                 architecture, privacy, deployment, operations, contracts
 ```
-
----
 
 ## Documentation
 
 | Document | Covers |
 | --- | --- |
 | [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Trust boundaries and data flow |
-| [`API.md`](docs/API.md) | Browser delegation endpoints and the current MCP tool surface |
-| [`TOOL_CONTRACT.md`](docs/TOOL_CONTRACT.md) | Registered MCP tools and mutation semantics |
+| [`API.md`](docs/API.md) | Browser delegation endpoints and current MCP surface |
+| [`TOOL_CONTRACT.md`](docs/TOOL_CONTRACT.md) | Registered tools and mutation semantics |
 | [`PRIVACY.md`](docs/PRIVACY.md) | Delegated-data and disclosure model |
 | [`THREAT_MODEL.md`](docs/THREAT_MODEL.md) | Threats, assumptions, and controls |
 | [`ENVIRONMENT.md`](docs/ENVIRONMENT.md) | Runtime configuration and secret handling |
-| [`DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Vercel/Supabase production contract and first-party origin |
-| [`OPERATIONS.md`](docs/OPERATIONS.md) | Fail-closed operation and incident handling |
-| [`RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) | Gates before broad/public release |
-
----
+| [`DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Vercel/Supabase production contract |
+| [`RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) | Remaining broad-client release gates |
 
 ## Contributing and security
 
-Security-sensitive changes must preserve the documented trust boundaries and include regression coverage for any changed authorization, schema, encryption, grounding, or mutation behavior. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Security-sensitive changes must preserve the documented trust boundaries and include regression coverage for changed authorization, schemas, encryption, grounding, or mutation behavior. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-Do **not** disclose vulnerabilities in a public issue. Follow [`SECURITY.md`](SECURITY.md) for responsible reporting and the project's non-negotiable security boundaries.
-
----
+Do **not** disclose vulnerabilities in a public issue. Follow [`SECURITY.md`](SECURITY.md) for responsible reporting.
 
 ## Project relationship
 
