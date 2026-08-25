@@ -3,20 +3,20 @@
 Gapwise AI intentionally exposes one standards-based remote MCP endpoint rather than provider-specific backends:
 
 ```text
-https://gapwise-ai.vercel.app/api/mcp
+https://ai.gapwise.ca/api/mcp
 ```
 
 Protected-resource metadata:
 
 ```text
-https://gapwise-ai.vercel.app/.well-known/oauth-protected-resource
+https://ai.gapwise.ca/.well-known/oauth-protected-resource
 ```
 
 The MCP surface is the product contract. Provider packaging must not duplicate timetable, routing, gap-planning, permission, or write-validation logic.
 
 ## Claude
 
-Claude custom connectors support remote Streamable HTTP MCP servers with OAuth and Dynamic Client Registration (DCR). Use the canonical MCP URL above.
+Claude custom connectors target the same remote Streamable HTTP MCP service and OAuth boundary. Use the canonical MCP URL above.
 
 Release test:
 
@@ -31,21 +31,21 @@ Release test:
 9. Verify imported academic meetings cannot be edited through any exposed tool.
 10. Revoke AI access in Gapwise and verify the connector can no longer retrieve delegated data.
 
-Claude's current documented OAuth callback for custom connectors is `https://claude.ai/api/mcp/auth_callback`. DCR is preferred so the client registration can be created automatically by Supabase OAuth rather than hard-coding a Claude credential into this repository.
+Provider-specific callback URLs and client-registration behavior are external-client details and must be rechecked against the provider's current documentation during each release validation. Do not hard-code a provider credential into this repository.
 
 ## ChatGPT
 
-OpenAI's Apps SDK is MCP-based. The same canonical MCP endpoint is the underlying Gapwise app backend; do not create a separate ChatGPT data API.
+The same canonical MCP endpoint is the underlying Gapwise integration backend; do not create a separate ChatGPT data API.
 
 For private development on a ChatGPT plan/workspace that currently supports custom MCP apps:
 
-1. Enable Developer Mode for the eligible workspace/account.
-2. Create a custom app and supply `https://gapwise-ai.vercel.app/api/mcp`.
-3. Let ChatGPT scan the MCP tools and complete OAuth when prompted.
-4. Exercise the same read/write/revocation matrix used for Claude.
+1. Enable the product's current developer/custom-app flow for the eligible workspace/account.
+2. Create a custom app and supply `https://ai.gapwise.ca/api/mcp`.
+3. Let the client scan the registered MCP tools and complete OAuth when prompted.
+4. Exercise the same read/write/revocation matrix used for other external clients.
 5. Pay particular attention to confirmation UX for destructive/write actions and to refresh-token longevity.
 
-OpenAI currently recommends Apps SDK for packaging/publishing ChatGPT app experiences. Public distribution should therefore wrap this MCP app in the current ChatGPT app/plugin submission flow instead of introducing a second server implementation.
+Public distribution should wrap the same MCP backend in the current ChatGPT app submission flow rather than introducing a second server implementation.
 
 Before submission, require:
 
@@ -60,14 +60,14 @@ Before submission, require:
 
 ## Other MCP clients
 
-Any client supporting remote Streamable HTTP MCP plus the OAuth authorization flow may target the same endpoint. Treat each new provider as a compatibility/security validation exercise, not a reason to fork the backend.
+Any client supporting the required remote Streamable HTTP MCP and authorization flow may target the same endpoint. Treat each new provider as a compatibility/security validation exercise, not a reason to fork the backend.
 
 For every provider, validate at minimum:
 
 - protected-resource and OAuth discovery;
-- PKCE/DCR behavior or explicit client registration when DCR is unavailable;
+- client-registration behavior expected by that client;
 - access-token refresh/expiry behavior;
-- `client_id` preservation in Supabase OAuth access tokens;
+- `client_id` preservation in Supabase OAuth access tokens where required by the current authorization policy;
 - RLS isolation from primary Gapwise private/cloud/friend data;
 - tool-schema compatibility;
 - write confirmation UX where the client provides it;

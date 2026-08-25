@@ -18,7 +18,7 @@ When OpenAI supplies a domain-verification token, set it only in production as `
 
 ## Tool review assertions
 
-All tools:
+All registered tools:
 
 - advertise OAuth in both root-level `securitySchemes` and the compatibility `_meta.securitySchemes` mirror;
 - request only the supported minimal `email` identity scope;
@@ -29,8 +29,6 @@ All tools:
 - reject OAuth bearer tokens whose `aud` does not contain exactly `https://ai.gapwise.ca/api/mcp`;
 - reject tokens missing the required granted scope;
 - declare structured output schemas as well as input schemas.
-
-The Supabase custom access-token hook grants the MCP audience only when the exact `(user_id, client_id)` was explicitly approved through Gapwise before token issuance. Registration alone is insufficient.
 
 Write tools additionally require the current snapshot revision and the corresponding explicit delegation permission. Academic course meetings cannot be mutated through the MCP surface.
 
@@ -60,7 +58,7 @@ Write tools additionally require the current snapshot revision and the correspon
 6. Unauthenticated MCP initialization and `tools/list` succeed; root tool definitions expose OAuth security schemes; unauthenticated `tools/call` returns the in-band challenge.
 7. A newly issued approved OAuth token succeeds against the MCP endpoint; ordinary browser, unapproved-client, wrong-audience, expired, and missing-scope tokens fail.
 8. The OpenAI domain challenge is configured only when the submission portal provides a token, and its live response body is exactly that token.
-9. OpenAI's Scan Tools step reports the intended nine tools with accurate input/output schemas, descriptions, and annotations.
+9. OpenAI's tool scan reports the **13 tools currently registered by `app/api/mcp/route.ts`** with accurate input/output schemas, descriptions, and annotations. The unregistered public-campus definitions are not counted until they are deliberately wired into the handler.
 10. Complete the read/write/revoke matrix in ChatGPT and Claude using non-sensitive test data before broad launch.
 
 ## Release notes template

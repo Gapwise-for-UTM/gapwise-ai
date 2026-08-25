@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
   title: "Gapwise AI",
-  description: "Private MCP integration service for Gapwise for UTM.",
+  description: "Permissioned, provider-neutral MCP integration service for Gapwise.",
+  icons: { icon: "/favicon.svg" },
   robots: { index: false, follow: false },
 };
 

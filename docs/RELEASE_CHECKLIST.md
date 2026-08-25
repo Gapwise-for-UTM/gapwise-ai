@@ -23,8 +23,8 @@ Checked items have been verified in code, CI, production infrastructure, or the 
 
 - [x] Gapwise browser delegation/OAuth-consent integration is merged and deployed on `gapwise.ca`.
 - [x] Gapwise production CSP allows only the active trusted Gapwise AI origin alongside existing required origins.
-- [ ] `ai.gapwise.ca` is attached to the Vercel project, DNS/TLS are valid, and the service has migrated its canonical OAuth resource metadata to that hostname.
-- [ ] Gapwise production CSP/browser configuration has migrated from the Vercel bootstrap origin to `https://ai.gapwise.ca`.
+- [x] `ai.gapwise.ca` is attached to the Vercel project, DNS/TLS are valid, and production metadata canonicalizes to that first-party origin.
+- [ ] Re-verify the deployed Gapwise browser/CSP configuration against `https://ai.gapwise.ca` on the exact release candidate before broad client release.
 
 ## Real-client validation
 
@@ -48,7 +48,7 @@ Checked items have been verified in code, CI, production infrastructure, or the 
 ## Remaining blockers
 
 1. Enable and validate the Supabase OAuth 2.1 server flow against the deployed Gapwise `/oauth/consent` page.
-2. Attach and validate `ai.gapwise.ca`, then migrate the canonical MCP resource/browser trusted origin from the temporary Vercel hostname.
+2. Re-verify the production Gapwise browser/CSP trust path for `https://ai.gapwise.ca` on the exact release candidate.
 3. Complete the real ChatGPT and Claude OAuth/read/write/revoke matrices.
 4. Run one final secret/history scan and exact-head CI check immediately before public release.
 
