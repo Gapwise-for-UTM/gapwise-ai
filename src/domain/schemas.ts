@@ -7,7 +7,15 @@ const isoDateTime = z.string().datetime({ offset: true });
 const calendarDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u);
 
 export const TermSchema = z.enum(["Fall", "Winter", "Summer"]);
-export const WeekdaySchema = z.enum(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]);
+export const WeekdaySchema = z.enum([
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+]);
 export const ActivityTypeSchema = z.enum(["LEC", "TUT", "PRA", "OTHER"]);
 export const MeetingLocationTypeSchema = z.enum(["physical", "tba", "online", "unknown"]);
 
