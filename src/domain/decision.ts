@@ -411,7 +411,15 @@ export function checkPlanFeasibility(snapshot: AiSnapshot, query: PlanFeasibilit
 
 export function decisionContext(snapshot: AiSnapshot, term: Term) {
   const week = weekSchedule(snapshot, term);
-  const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] as const;
+  const weekdays = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ] as const;
   const days = weekdays.map((weekday) => {
     const meetings = week.meetings.filter((meeting) => meeting.weekday === weekday);
     const fixedPersonal = week.personalItems.filter(
