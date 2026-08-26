@@ -1,0 +1,86 @@
+name: AND-127 weekend implementation
+
+on:
+  push:
+    branches:
+      - andrewamuratov/and-127-support-weekend-schedules-across-gapwise-ai-delegation-and
+    paths:
+      - ".github/workflows/and-127-weekend-implementation.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  implement-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Complete seven-day implementation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_exact(path, old, new, count=1):
+              p = Path(path)
+              text = p.read_text()
+              found = text.count(old)
+              if found != count:
+                  raise SystemExit(f"{path}: expected {count} occurrences, found {found}: {old!r}")
+              p.write_text(text.replace(old, new))
+
+          replace_exact(
+              "src/domain/decision.ts",
+              '  const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] as const;',
+              '  const weekdays = [\n    "Monday",\n    "Tuesday",\n    "Wednesday",\n    "Thursday",\n    "Friday",\n    "Saturday",\n    "Sunday",\n  ] as const;',
+          )
+          replace_exact(
+              "src/mcp/output-schemas.ts",
+              '    days: z.array(DecisionDaySchema).length(5),',
+              '    days: z.array(DecisionDaySchema).length(7),',
+          )
+          replace_exact(
+              "app/api/mcp/route.ts",
+              "Search Monday-Friday for usable planning opportunities in one academic term.",
+              "Search all seven weekdays for usable planning opportunities in one academic term.",
+          )
+          replace_exact(
+              "README.md",
+              "Search Monday–Friday for usable windows while respecting delegated Gapwise activity budgets",
+              "Search all seven weekdays for usable windows while respecting delegated Gapwise activity budgets",
+          )
+          replace_exact(
+              "docs/API.md",
+              "searches Monday–Friday in one call.",
+              "searches all seven weekdays in one call.",
+          )
+          replace_exact(
+              "docs/TOOL_CONTRACT.md",
+              "Searches Monday–Friday for usable planning windows.",
+              "Searches all seven weekdays for usable planning windows.",
+          )
+          PY
+      - name: Ensure no live Monday-Friday weekly-planning claim remains
+        run: |
+          ! rg -n 'Search(?:es)? Monday[-–]Friday|search(?:es)? Monday[-–]Friday' README.md docs src app
+      - name: Run full check
+        run: npm run check
+      - name: Dependency audit
+        run: npm audit --omit=dev --audit-level=high
+      - name: Commit verified source changes
+        run: |
+          git rm .github/workflows/and-127-weekend-implementation.yml
+          git config user.name "Andrew Muratov"
+          git config user.email "andrewamuratov@gmail.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "fix: support weekend schedules across Gapwise AI" -m "Closes AND-127."
+          git push origin HEAD:andrewamuratov/and-127-support-weekend-schedules-across-gapwise-ai-delegation-and
