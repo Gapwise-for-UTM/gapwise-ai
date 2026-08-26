@@ -1,9 +1,17 @@
 import { findAvailableWindows } from "@/src/domain/decision";
 import type { AiSnapshot } from "@/src/domain/schemas";
 
-const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] as const;
+const WEEKDAYS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+] as const;
 type Term = AiSnapshot["schedule"][number]["term"];
-type Weekday = (typeof WEEKDAYS)[number];
+type Weekday = AiSnapshot["schedule"][number]["weekday"];
 type GapPlan = AiSnapshot["gapPlans"][number];
 
 export type WeeklyAvailabilityQuery = {
@@ -95,6 +103,6 @@ export function findWeeklyAvailableWindows(snapshot: AiSnapshot, query: WeeklyAv
     windows,
     status: windows.length ? ("available_windows_found" as const) : ("no_matching_window" as const),
     interpretation:
-      "When a delegated Gapwise gap assessment contains a window, usableActivityMinutes is capped by Gapwise's authoritative primary activity budget and becomes zero if the surrounding route is unavailable. Windows without a delegated gap assessment are temporal-only and do not imply validated transition travel.",
+      "All seven weekdays are searched. When a delegated Gapwise gap assessment contains a window, usableActivityMinutes is capped by Gapwise's authoritative primary activity budget and becomes zero if the surrounding route is unavailable. Windows without a delegated gap assessment are temporal-only and do not imply validated transition travel.",
   };
 }

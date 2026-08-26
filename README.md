@@ -86,7 +86,7 @@ The current `app/api/mcp/route.ts` registers **13 permissioned tools**: nine rea
 | `get_my_ai_preferences` | Return only planning/routing preferences explicitly delegated to AI |
 | `get_my_decision_context` | Return a compact term-level planning summary grounded in delegated Gapwise state |
 | `find_my_available_windows` | Find bounded source-backed free windows for one date or term weekday |
-| `find_my_weekly_opportunities` | Search Monday–Friday for usable windows while respecting delegated Gapwise activity budgets |
+| `find_my_weekly_opportunities` | Search all seven weekdays for usable windows while respecting delegated Gapwise activity budgets |
 | `check_my_plan_feasibility` | Check a proposed personal block against hard conflicts and known delegated Gapwise constraints |
 
 ### Bounded writes

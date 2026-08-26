@@ -28,7 +28,7 @@ Returns a compact term-level planning summary including hard schedule load, dele
 Finds source-backed free windows for one date or one term weekday. Without explicit search bounds it only returns windows bounded by delegated hard events; it does not invent wake/sleep assumptions or edge-of-day availability.
 
 ### `find_my_weekly_opportunities`
-Searches Monday–Friday for usable planning windows. When an interval is covered by a delegated deterministic Gapwise gap assessment, usable activity time is capped by the Gapwise activity budget and an unavailable transition route contributes zero validated activity minutes.
+Searches all seven weekdays for usable planning windows. When an interval is covered by a delegated deterministic Gapwise gap assessment, usable activity time is capped by the Gapwise activity budget and an unavailable transition route contributes zero validated activity minutes.
 
 ### `check_my_plan_feasibility`
 Checks a proposed personal block against delegated hard conflicts and, when applicable, the authoritative activity envelope/transition state for a delegated Gapwise gap. Arbitrary proposed locations are echoed but are not route-validated by this tool.

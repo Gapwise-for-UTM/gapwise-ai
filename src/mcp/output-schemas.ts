@@ -258,7 +258,7 @@ export const DecisionContextOutputSchema = z
         fixedPersonalCount: z.number().int().min(0).max(200),
       })
       .strict(),
-    days: z.array(DecisionDaySchema).length(5),
+    days: z.array(DecisionDaySchema).length(7),
     topGapOpportunities: z.array(GapPlanSchema).max(8),
     gapPreferences: GapPreferencesSchema.nullable(),
     routingPreferences: RoutingPreferencesSchema.nullable(),

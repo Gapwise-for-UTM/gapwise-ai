@@ -1,7 +1,26 @@
 import type { AiSnapshot, PersonalItem } from "@/src/domain/schemas";
 
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
+const JS_WEEKDAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
+const WEEKDAY_ORDER = new Map([
+  ["Monday", 1],
+  ["Tuesday", 2],
+  ["Wednesday", 3],
+  ["Thursday", 4],
+  ["Friday", 5],
+  ["Saturday", 6],
+  ["Sunday", 7],
+]);
 const DAY_MS = 86_400_000;
+
+type Weekday = AiSnapshot["schedule"][number]["weekday"];
 
 function parseDate(date: string): Date {
   if (!/^\d{4}-\d{2}-\d{2}$/u.test(date)) throw new Error("Date must use YYYY-MM-DD.");
@@ -19,10 +38,8 @@ export function termForDate(date: string): "Fall" | "Winter" | "Summer" {
   return "Fall";
 }
 
-export function weekdayForDate(date: string) {
-  const weekday = WEEKDAYS[parseDate(date).getUTCDay()];
-  if (weekday === "Sunday" || weekday === "Saturday") return null;
-  return weekday;
+export function weekdayForDate(date: string): Weekday {
+  return JS_WEEKDAYS[parseDate(date).getUTCDay()]!;
 }
 
 function academicMeetingOccursOnDate(
@@ -30,7 +47,7 @@ function academicMeetingOccursOnDate(
   date: string,
 ): boolean {
   const weekday = weekdayForDate(date);
-  if (!weekday || meeting.weekday !== weekday) return false;
+  if (meeting.weekday !== weekday) return false;
   if (meeting.excludedDates?.includes(date)) return false;
 
   if (meeting.dateRange) {
@@ -49,23 +66,14 @@ function academicMeetingOccursOnDate(
   return meeting.term === termForDate(date);
 }
 
-function isFixedPersonal(item: PersonalItem): item is Extract<PersonalItem, { flexibility: { kind: "fixed" } }> {
+function isFixedPersonal(
+  item: PersonalItem,
+): item is Extract<PersonalItem, { flexibility: { kind: "fixed" } }> {
   return item.flexibility.kind === "fixed";
 }
 
 export function daySchedule(snapshot: AiSnapshot, date: string) {
   const weekday = weekdayForDate(date);
-  if (!weekday) {
-    return {
-      date,
-      weekday: null,
-      term: termForDate(date),
-      revision: snapshot.revision,
-      meetings: [],
-      personalItems: [],
-      gapPlans: [],
-    };
-  }
   const term = termForDate(date);
   const meetings = snapshot.schedule
     .filter((meeting) => academicMeetingOccursOnDate(meeting, date))
@@ -103,14 +111,6 @@ export function daySchedule(snapshot: AiSnapshot, date: string) {
   };
 }
 
-const WEEKDAY_ORDER = new Map([
-  ["Monday", 1],
-  ["Tuesday", 2],
-  ["Wednesday", 3],
-  ["Thursday", 4],
-  ["Friday", 5],
-]);
-
 export function weekSchedule(snapshot: AiSnapshot, term: "Fall" | "Winter" | "Summer") {
   const meetings = snapshot.schedule
     .filter((meeting) => meeting.term === term)
@@ -124,7 +124,8 @@ export function weekSchedule(snapshot: AiSnapshot, term: "Fall" | "Winter" | "Su
     ? snapshot.personalItems
         .filter((item) => item.term === term)
         .sort((a, b) => {
-          const day = (WEEKDAY_ORDER.get(a.weekday) ?? 99) - (WEEKDAY_ORDER.get(b.weekday) ?? 99);
+          const day =
+            (WEEKDAY_ORDER.get(a.weekday) ?? 99) - (WEEKDAY_ORDER.get(b.weekday) ?? 99);
           if (day) return day;
           const aStart = isFixedPersonal(a) ? a.startTime : a.flexibility.windowStart ?? 0;
           const bStart = isFixedPersonal(b) ? b.startTime : b.flexibility.windowStart ?? 0;
@@ -147,7 +148,7 @@ export function gapContext(
   snapshot: AiSnapshot,
   input: {
     term: "Fall" | "Winter" | "Summer";
-    weekday: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday";
+    weekday: Weekday;
     startTime: number;
     endTime: number;
   },

@@ -343,7 +343,7 @@ const handler = createMcpHandler(
       {
         title: "Find my Gapwise weekly opportunities",
         description:
-          "Search Monday-Friday for usable planning opportunities in one academic term. This is Gapwise-aware: a raw free gap is capped by the delegated deterministic Gapwise activity budget, and a gap whose surrounding route is unavailable contributes zero validated activity minutes. Results without a delegated gap assessment are explicitly temporal-only. Use this for requests like 'find 90-minute study windows this week' instead of calling every weekday or doing timetable arithmetic yourself.",
+          "Search all seven weekdays for usable planning opportunities in one academic term. This is Gapwise-aware: a raw free gap is capped by the delegated deterministic Gapwise activity budget, and a gap whose surrounding route is unavailable contributes zero validated activity minutes. Results without a delegated gap assessment are explicitly temporal-only. Use this for requests like 'find 90-minute study windows this week' instead of calling every weekday or doing timetable arithmetic yourself.",
         inputSchema: z
           .object({
             term: TermSchema,
