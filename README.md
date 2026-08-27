@@ -29,13 +29,16 @@ Gapwise AI is the separate, provider-neutral **Model Context Protocol (MCP)** se
 
 It is not a second implementation of the Gapwise timetable, routing, or gap-planning engine. The main Gapwise application owns canonical student state and deterministic campus calculations; this repository exposes permissioned, bounded interfaces to that state.
 
+The first-party repositories form one product ecosystem:
+
 | Repository | Role in the Gapwise ecosystem |
 | --- | --- |
-| [`andrewmuratov/gapwise`](https://github.com/andrewmuratov/gapwise) | Core product, canonical private student state, and deterministic campus-intelligence system |
-| [`andrewmuratov/gapwise-docs`](https://github.com/andrewmuratov/gapwise-docs) | Public developer documentation for the Gapwise API, OpenAPI contract, and SDK surface |
-| **`andrewmuratov/gapwise-ai`** | Permissioned MCP layer for explicitly delegated student context and bounded AI-facing actions |
+| [`andrewmuratov/gapwise`](https://github.com/andrewmuratov/gapwise) | Core web/PWA product, canonical student-state behavior, deterministic campus intelligence, public API/OpenAPI contract, and SDK source |
+| [`andrewmuratov/gapwise-mobile`](https://github.com/andrewmuratov/gapwise-mobile) | Native iOS and Android client consuming canonical Gapwise contracts and product semantics |
+| **`andrewmuratov/gapwise-ai`** | Permissioned OAuth/MCP layer for explicitly delegated student context and bounded AI-facing actions |
+| [`andrewmuratov/gapwise-docs`](https://github.com/andrewmuratov/gapwise-docs) | Public developer documentation for the API, SDKs, platform behavior, and AI/MCP integration |
 
-The architectural rule across the ecosystem is simple: **Gapwise owns the facts and deterministic calculations; AI clients reason over those facts without silently recreating them.**
+The architectural rule across the ecosystem is simple: **Gapwise owns the facts and deterministic calculations; mobile and AI consume those contracts, and the docs describe the released public surfaces rather than creating new truth.**
 
 > [!IMPORTANT]
 > **Release status: public release candidate.** The source repository is public and the production service is configured around `https://ai.gapwise.ca`. Real external OAuth/read/write/revoke validation remains a gate before claiming broad ChatGPT, Claude, or other MCP-client support. See [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
@@ -178,6 +181,23 @@ src/openai/           optional OpenAI domain-verification challenge helper
 tests/                authorization, grounding, crypto, domain, safety regressions
 docs/                 architecture, privacy, deployment, operations, contracts
 ```
+
+---
+
+## Gapwise ecosystem
+
+The first-party repositories are separate deployment surfaces with one product identity, trust model, and source-of-truth hierarchy:
+
+| Repository | Role | Primary surface |
+| --- | --- | --- |
+| **[`gapwise`](https://github.com/andrewmuratov/gapwise)** | Core web/PWA product, canonical student-state behavior, deterministic UTM campus intelligence, public API, OpenAPI contract, and SDK source | [gapwise.ca](https://gapwise.ca) / [api.gapwise.ca](https://api.gapwise.ca/v1) |
+| **[`gapwise-mobile`](https://github.com/andrewmuratov/gapwise-mobile)** | Native iOS and Android client consuming canonical Gapwise contracts and product semantics | Native mobile app |
+| **[`gapwise-ai`](https://github.com/andrewmuratov/gapwise-ai)** | Permissioned OAuth/MCP layer for explicitly delegated student context and bounded AI actions | [ai.gapwise.ca](https://ai.gapwise.ca/api/mcp) |
+| **[`gapwise-docs`](https://github.com/andrewmuratov/gapwise-docs)** | Public developer documentation for the API, SDKs, platform behavior, and AI/MCP integration | [docs.gapwise.ca](https://docs.gapwise.ca) |
+
+`gapwise` remains authoritative for deterministic timetable, gap, campus, routing, and primary student-state semantics. `gapwise-ai` adds a bounded delegated interface rather than becoming a parallel source of truth; `gapwise-mobile` consumes the same contracts; `gapwise-docs` documents released behavior.
+
+---
 
 ## Documentation
 
