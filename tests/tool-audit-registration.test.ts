@@ -14,7 +14,7 @@ type AuditContext = {
   };
 };
 
-type ToolHandler = (args: unknown, context: AuditContext) => unknown | Promise<unknown>;
+type ToolHandler = (...args: unknown[]) => unknown | Promise<unknown>;
 type TestServer = {
   registerTool(name: string, config: unknown, callback: ToolHandler): unknown;
 };
@@ -33,6 +33,7 @@ const authenticatedContext: AuditContext = {
 function wrappedHandler(
   implementation: ToolHandler,
   sink: (event: ToolAuditEvent) => void,
+  config: unknown = { inputSchema: {} },
 ): ToolHandler {
   let captured: ToolHandler | null = null;
   const server: TestServer = {
@@ -43,7 +44,7 @@ function wrappedHandler(
   };
 
   installToolAuditRegistration(server as unknown as McpServer, sink);
-  server.registerTool("get_my_day", {}, implementation);
+  server.registerTool("get_my_day", config, implementation);
   expect(captured).not.toBeNull();
   return captured!;
 }
@@ -77,6 +78,27 @@ describe("MCP tool audit registration", () => {
     expect(serialized).not.toContain("private timetable response");
     expect(serialized).not.toContain("opaque-bearer-token");
     expect(serialized).not.toContain("user-a-high-entropy-id");
+  });
+
+  it("preserves the SDK no-input-schema callback form", async () => {
+    const sink = vi.fn<(event: ToolAuditEvent) => void>();
+    const implementation = vi.fn(async (context: unknown) => ({
+      structuredContent: { ok: Boolean((context as AuditContext).http) },
+    }));
+    const handler = wrappedHandler(implementation, sink, {});
+
+    const result = await handler(authenticatedContext);
+
+    expect(implementation).toHaveBeenCalledOnce();
+    expect(implementation).toHaveBeenCalledWith(authenticatedContext);
+    expect(result).toEqual({ structuredContent: { ok: true } });
+    expect(sink).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tool: "get_my_day",
+        clientId: "chatgpt-gapwise",
+        outcome: "success",
+      }),
+    );
   });
 
   it("classifies authentication challenges without caller metadata", async () => {
