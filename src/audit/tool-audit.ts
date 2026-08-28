@@ -21,7 +21,7 @@ export type CallerMetadata = {
   clientId?: string | null;
 };
 
-export type AuditSink = (event: ToolAuditEvent) => void;
+export type AuditSink = (event: ToolAuditEvent) => void | Promise<void>;
 
 function callerReference(userId: string): string {
   return createHash("sha256")
@@ -50,7 +50,12 @@ const vercelLogSink: AuditSink = (event) => {
 
 export function emitToolAuditEvent(event: ToolAuditEvent, sink: AuditSink = vercelLogSink): void {
   try {
-    sink(event);
+    const result = sink(event);
+    if (result && typeof result.then === "function") {
+      void result.catch(() => {
+        // Observability must never become a dependency of a user tool call.
+      });
+    }
   } catch {
     // Observability must never become a dependency of a user tool call.
   }
