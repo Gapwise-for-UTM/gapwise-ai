@@ -24,7 +24,7 @@ const TOOL_DESCRIPTION_OVERRIDES: Readonly<Record<string, string>> = {
   find_my_available_windows:
     "Finds source-backed free windows for one date or term weekday using delegated academic meetings and permitted fixed personal items as hard constraints. Flexible personal items are returned as soft competing constraints. Without explicit search bounds, only windows between known hard events are returned.",
   find_my_weekly_opportunities:
-    "Searches Monday through Friday for usable planning opportunities in one academic term. Raw free gaps are capped by delegated deterministic Gapwise activity budgets; gaps with unavailable surrounding routes contribute zero validated activity minutes; gaps without a delegated assessment are marked temporal-only.",
+    "Searches all seven weekdays for usable planning opportunities in one academic term. Raw free gaps are capped by delegated deterministic Gapwise activity budgets; gaps with unavailable surrounding routes contribute zero validated activity minutes; gaps without a delegated assessment are marked temporal-only.",
   check_my_plan_feasibility:
     "Read-only validation of a proposed personal time block against delegated hard timetable conflicts and, when the block lies inside a delegated Gapwise gap, its authoritative activity envelope and route availability. Proposed locations are echoed but are not route-validated by this tool.",
   list_utm_buildings:
