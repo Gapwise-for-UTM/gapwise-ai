@@ -16,12 +16,12 @@ export type ToolAuditEvent = Readonly<{
   outcome: ToolAuditOutcome;
 }>;
 
-type CallerMetadata = {
+export type CallerMetadata = {
   userId: string;
   clientId?: string | null;
 };
 
-type AuditSink = (event: ToolAuditEvent) => void;
+export type AuditSink = (event: ToolAuditEvent) => void;
 
 function callerReference(userId: string): string {
   return createHash("sha256")
