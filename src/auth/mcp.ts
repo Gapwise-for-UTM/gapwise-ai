@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { registerPublicCampusTools } from "@/src/mcp/public-campus-tools";
 
 export const MCP_RESOURCE_URL = "https://ai.gapwise.ca/api/mcp";
 export const MCP_RESOURCE_METADATA_URL =
@@ -114,15 +113,15 @@ function schemaToJsonSchema(schema: unknown): Record<string, unknown> {
 }
 
 /**
- * Register provider-neutral public campus tools before projecting the SDK's
- * private tool registry. These tools intentionally carry no OAuth security
- * scheme because they expose only stateless public UTM data; private Gapwise
- * tools keep their existing OAuth metadata and per-tool caller checks.
+ * Project the pinned SDK's private tool registry into a conservative tools/list
+ * contract for directory clients. This function must never register additional
+ * tools: the live surface is defined only by the explicit private registrations
+ * in `app/api/mcp/route.ts`. Dormant public-campus definitions remain unregistered
+ * until a separate reviewed product/security decision deliberately exposes them.
  *
- * The compatibility projection also keeps the public tools/list contract
- * conservative across directory clients: modification tools are marked
- * destructive for approval purposes and a small set of older descriptions is
- * narrowed to factual capability text rather than model-behavior instructions.
+ * The compatibility projection keeps modification tools marked destructive for
+ * approval purposes and narrows a small set of older descriptions to factual
+ * capability text rather than model-behavior instructions.
  *
  * ChatGPT currently requires root-level `securitySchemes` in tools/list while
  * the pinned MCP SDK v2 only serializes custom auth declarations via `_meta`.
@@ -131,10 +130,6 @@ function schemaToJsonSchema(schema: unknown): Record<string, unknown> {
  * scheme part when the SDK gains first-class root-level serialization.
  */
 export function installToolSecuritySchemeProjection(server: unknown): void {
-  const maybeRegistrar = server as { registerTool?: unknown };
-  if (typeof maybeRegistrar.registerTool === "function") {
-    registerPublicCampusTools(server as Parameters<typeof registerPublicCampusTools>[0]);
-  }
   const privateServer = server as McpServerPrivate;
   privateServer.server.setRequestHandler("tools/list", () => ({
     tools: Object.entries(privateServer._registeredTools)

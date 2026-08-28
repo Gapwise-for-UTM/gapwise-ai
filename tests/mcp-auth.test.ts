@@ -27,12 +27,14 @@ describe("OpenAI MCP tool authentication metadata", () => {
     expect(result._meta["mcp/www_authenticate"][0]).toContain("error_description=");
   });
 
-  it("projects SDK _meta security schemes to the root tools/list definition", () => {
+  it("projects SDK _meta security schemes without registering dormant tools", () => {
     let toolsList: (() => unknown) | undefined;
     const setRequestHandler = vi.fn((method: string, handler: () => unknown) => {
       if (method === "tools/list") toolsList = handler;
     });
+    const registerTool = vi.fn();
     const fakeServer = {
+      registerTool,
       _registeredTools: {
         get_my_day: {
           enabled: true,
@@ -47,6 +49,7 @@ describe("OpenAI MCP tool authentication metadata", () => {
     };
 
     installToolSecuritySchemeProjection(fakeServer);
+    expect(registerTool).not.toHaveBeenCalled();
     expect(setRequestHandler).toHaveBeenCalledWith("tools/list", expect.any(Function));
     expect(toolsList).toBeTypeOf("function");
 
