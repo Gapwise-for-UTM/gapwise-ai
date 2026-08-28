@@ -19,7 +19,7 @@ type AuditToolContext = {
   };
 };
 
-type ToolHandler = (args: unknown, context: AuditToolContext) => unknown | Promise<unknown>;
+type ToolHandler = (...args: unknown[]) => unknown | Promise<unknown>;
 type RegisterTool = (name: string, config: unknown, callback: ToolHandler) => unknown;
 
 type ToolResultLike = {
@@ -27,8 +27,9 @@ type ToolResultLike = {
   structuredContent?: unknown;
 };
 
-function callerMetadataFromContext(context: AuditToolContext): CallerMetadata | null {
-  const auth = context.http?.authInfo;
+function callerMetadataFromContext(context: unknown): CallerMetadata | null {
+  if (!context || typeof context !== "object") return null;
+  const auth = (context as AuditToolContext).http?.authInfo;
   const userId = auth?.extra?.["userId"];
   if (
     typeof auth?.token !== "string" ||
@@ -61,20 +62,35 @@ function resultOutcome(result: unknown): ToolAuditOutcome {
   return "delegation_error";
 }
 
+function hasInputSchema(config: unknown): boolean {
+  return Boolean(
+    config &&
+      typeof config === "object" &&
+      "inputSchema" in config &&
+      (config as { inputSchema?: unknown }).inputSchema,
+  );
+}
+
+function contextFromCallback(config: unknown, args: readonly unknown[]): unknown {
+  if (args.length === 0) return null;
+  return hasInputSchema(config) ? args.at(-1) : args[0];
+}
+
 /**
  * Wrap every subsequently registered MCP tool with one metadata-only audit boundary.
  * The wrapper never reads tool arguments or response content beyond the coarse error
- * discriminator needed to classify the outcome.
+ * discriminator needed to classify the outcome. Both schema-backed `(args, ctx)` and
+ * no-schema `(ctx)` callback forms are forwarded without changing their arguments.
  */
 export function installToolAuditRegistration(server: McpServer, sink?: AuditSink): void {
   const mutableServer = server as unknown as { registerTool: RegisterTool };
   const registerTool = mutableServer.registerTool.bind(server);
 
   mutableServer.registerTool = (name, config, callback) =>
-    registerTool(name, config, async (args, context) => {
-      const caller = callerMetadataFromContext(context);
+    registerTool(name, config, async (...callbackArgs) => {
+      const caller = callerMetadataFromContext(contextFromCallback(config, callbackArgs));
       try {
-        const result = await callback(args, context);
+        const result = await callback(...callbackArgs);
         auditToolInvocation(name, resultOutcome(result), caller, sink);
         return result;
       } catch (error) {
