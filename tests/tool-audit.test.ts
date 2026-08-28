@@ -71,7 +71,7 @@ describe("privacy-preserving MCP tool audit events", () => {
     });
   });
 
-  it("never lets an observability failure break the caller path", () => {
+  it("never lets a synchronous observability failure break the caller path", () => {
     const throwingSink = vi.fn(() => {
       throw new Error("logging unavailable");
     });
@@ -82,6 +82,29 @@ describe("privacy-preserving MCP tool audit events", () => {
 
     expect(() => emitToolAuditEvent(event, throwingSink)).not.toThrow();
     expect(throwingSink).toHaveBeenCalledOnce();
+  });
+
+  it("never lets an asynchronously rejected observability sink escape", async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on("unhandledRejection", onUnhandled);
+
+    try {
+      const rejectingSink = vi.fn(async () => {
+        throw new Error("async logging unavailable");
+      });
+      const event = buildToolAuditEvent("get_my_day", "success", {
+        userId: "user-a",
+        clientId: "client-a",
+      });
+
+      expect(() => emitToolAuditEvent(event, rejectingSink)).not.toThrow();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(rejectingSink).toHaveBeenCalledOnce();
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
   });
 
   it("passes the constructed allowlisted event to the configured sink", () => {
