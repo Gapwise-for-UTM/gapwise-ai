@@ -1,4 +1,5 @@
-import { createMcpHandler, withMcpAuth } from "mcp-handler";
+import { withMcpAuth } from "mcp-handler";
+import { createMcpHandler } from "@/src/audit/mcp-handler";
 import { z } from "zod";
 import type { VerifiedCaller } from "@/src/auth/verify";
 import { verifyMcpToken } from "@/src/auth/verify";
