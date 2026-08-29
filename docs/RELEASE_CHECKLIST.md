@@ -4,7 +4,7 @@ Checked items have been verified in code, CI, production infrastructure, or the 
 
 ## Service and security gates
 
-- [ ] CI passes on the exact final broad-client release commit.
+- [x] CI passes on the exact current broad-client release candidate (`b5e00960f0fbf0c4979ccfe19f5053fc359886ea`, GitHub Actions CI run `33237742967`, 2026-08-29). Re-run this gate if the release head changes.
 - [x] Supabase migrations are applied and security/performance advisors have been reviewed.
 - [ ] Supabase OAuth 2.1 Server is enabled with the Gapwise `/oauth/consent` authorization path and required client-registration behavior.
 - [x] Production Vercel runtime configuration is healthy and `/api/health` returns HTTP 200.
@@ -49,6 +49,6 @@ Checked items have been verified in code, CI, production infrastructure, or the 
 1. Enable and validate the Supabase OAuth 2.1 server flow against the deployed Gapwise `/oauth/consent` page.
 2. Re-verify the production Gapwise browser/CSP trust path for `https://ai.gapwise.ca` on the exact release candidate.
 3. Complete the real ChatGPT and Claude OAuth/read/write/revoke matrices.
-4. Run a current-tree/history secret scan and exact-head CI/deployment check before claiming broad client support.
+4. Run a current-tree/history secret scan and exact-head deployment check before claiming broad client support. Exact-head CI is currently verified at `b5e00960f0fbf0c4979ccfe19f5053fc359886ea`; repeat it if the head moves.
 
 The repository is public because the design is intended to remain secure under source disclosure. That decision does not by itself certify every external MCP client or complete the remaining integration tests.
