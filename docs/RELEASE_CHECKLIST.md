@@ -4,9 +4,9 @@ Checked items have been verified in code, CI, production infrastructure, or the 
 
 ## Service and security gates
 
-- [ ] CI passes on the exact final broad-client release commit.
+- [ ] CI passes on the exact final broad-client release commit after the real-client matrices and any resulting fixes.
 - [x] Supabase migrations are applied and security/performance advisors have been reviewed.
-- [ ] Supabase OAuth 2.1 Server is enabled with the Gapwise `/oauth/consent` authorization path and required client-registration behavior.
+- [x] Supabase OAuth 2.1 Server is enabled with the Gapwise `/oauth/consent` authorization path and intended client-registration behavior; the production consent/resource boundary was validated under AND-114.
 - [x] Production Vercel runtime configuration is healthy and `/api/health` returns HTTP 200.
 - [x] No required secret/configuration variable uses a public client prefix.
 - [x] Protected-resource metadata resolves to the canonical MCP resource and correct Supabase issuer on the active production origin.
@@ -24,7 +24,7 @@ Checked items have been verified in code, CI, production infrastructure, or the 
 - [x] Gapwise browser delegation/OAuth-consent integration is merged and deployed on `gapwise.ca`.
 - [x] Gapwise production CSP allows only the active trusted Gapwise AI origin alongside existing required origins.
 - [x] `ai.gapwise.ca` is attached to the Vercel project, DNS/TLS are valid, and production metadata canonicalizes to that first-party origin.
-- [ ] Re-verify the deployed Gapwise browser/CSP configuration against `https://ai.gapwise.ca` on the exact broad-client release candidate.
+- [x] The deployed Gapwise browser/CSP configuration was rechecked against `https://ai.gapwise.ca` during the production OAuth consent-boundary validation under AND-114.
 
 ## Real-client validation
 
@@ -42,13 +42,13 @@ Checked items have been verified in code, CI, production infrastructure, or the 
 - [x] Production secrets remain outside source control.
 - [x] The security model does not rely on source secrecy.
 - [x] Repository visibility was intentionally changed to public by the owner.
-- [ ] Final current-tree and history secret scan is completed for the current public release candidate.
+- [x] A fresh reachable-history high-confidence secret scan, typecheck, unit-test suite, production dependency audit, and production build passed on the 2026-08-30 release-evidence checkpoint merged in PR #33.
+- [ ] The final exact-head current-tree/history scan is rerun after the real-client matrices and any resulting fixes, immediately before the broad-client release claim.
 
 ## Remaining broad-client release gates
 
-1. Enable and validate the Supabase OAuth 2.1 server flow against the deployed Gapwise `/oauth/consent` page.
-2. Re-verify the production Gapwise browser/CSP trust path for `https://ai.gapwise.ca` on the exact release candidate.
-3. Complete the real ChatGPT and Claude OAuth/read/write/revoke matrices.
-4. Run a current-tree/history secret scan and exact-head CI/deployment check before claiming broad client support.
+1. Complete the real ChatGPT and Claude OAuth/read/write/revoke matrices.
+2. Exercise the production-equivalent no-delegation, read-only, write-disabled, stale-write, academic-immutability, revoke, and re-auth cases.
+3. Run the final current-tree/history secret scan and exact-head CI/deployment verification after those external matrices and any resulting fixes.
 
 The repository is public because the design is intended to remain secure under source disclosure. That decision does not by itself certify every external MCP client or complete the remaining integration tests.
