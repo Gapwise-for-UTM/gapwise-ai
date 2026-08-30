@@ -1,6 +1,9 @@
 import type { AuthInfo } from "@modelcontextprotocol/server";
 import { getRuntimeConfig, supabaseIssuer } from "@/src/config";
 import { MCP_REQUIRED_SCOPES, MCP_RESOURCE_URL } from "@/src/auth/mcp";
+import { fetchUpstream, readBoundedJson } from "@/src/http/upstream";
+
+const MAX_AUTH_USER_BYTES = 32 * 1024;
 
 export type VerifiedCaller = {
   userId: string;
@@ -53,18 +56,30 @@ export function oauthClientIdFromAccessToken(token: string): string | null {
 export async function verifySupabaseAccessToken(token: string): Promise<VerifiedCaller | null> {
   if (!token || token.length > 16_384) return null;
   const config = getRuntimeConfig();
-  const response = await fetch(`${config.supabaseUrl}/auth/v1/user`, {
-    method: "GET",
-    cache: "no-store",
-    headers: {
-      apikey: config.supabasePublishableKey,
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetchUpstream(`${config.supabaseUrl}/auth/v1/user`, {
+      method: "GET",
+      cache: "no-store",
+      headers: {
+        apikey: config.supabasePublishableKey,
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  } catch {
+    return null;
+  }
   if (!response.ok) return null;
 
-  const body = (await response.json()) as { id?: unknown };
-  if (typeof body.id !== "string" || !/^[0-9a-f-]{36}$/iu.test(body.id)) return null;
+  let body: unknown;
+  try {
+    body = await readBoundedJson(response, MAX_AUTH_USER_BYTES);
+  } catch {
+    return null;
+  }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return null;
+  const user = body as { id?: unknown };
+  if (typeof user.id !== "string" || !/^[0-9a-f-]{36}$/iu.test(user.id)) return null;
 
   // Supabase's user endpoint validates the token cryptographically. We then
   // enforce resource-server claims independently instead of trusting decoded
@@ -77,9 +92,9 @@ export async function verifySupabaseAccessToken(token: string): Promise<Verified
   if (claims?.nbf !== undefined && (!Number.isSafeInteger(claims.nbf) || (claims.nbf as number) > now)) {
     return null;
   }
-  if (typeof claims?.sub !== "string" || claims.sub !== body.id) return null;
+  if (typeof claims?.sub !== "string" || claims.sub !== user.id) return null;
 
-  return { userId: body.id, accessToken: token, expiresAt: expiresAt as number };
+  return { userId: user.id, accessToken: token, expiresAt: expiresAt as number };
 }
 
 export async function verifyMcpToken(
