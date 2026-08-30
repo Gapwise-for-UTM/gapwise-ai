@@ -1,6 +1,6 @@
 import { getRuntimeConfig } from "@/src/config";
 import type { VerifiedCaller } from "@/src/auth/verify";
-import { fetchUpstream, readBoundedJson } from "@/src/http/upstream";
+import { readBoundedJson, withUpstreamDeadline } from "@/src/http/upstream";
 
 const MAX_REST_RESPONSE_BYTES = 2 * 1024 * 1024;
 
@@ -47,21 +47,23 @@ export class RestRequestError extends Error {
 
 async function rest<T>(caller: VerifiedCaller, path: string, init: RequestInit = {}): Promise<T> {
   const config = getRuntimeConfig();
-  const response = await fetchUpstream(`${config.supabaseUrl}/rest/v1/${path}`, {
-    ...init,
-    cache: "no-store",
-    headers: {
-      apikey: config.supabasePublishableKey,
-      Authorization: `Bearer ${caller.accessToken}`,
-      Accept: "application/json",
-      ...(init.body ? { "Content-Type": "application/json" } : {}),
-      ...(init.headers ?? {}),
-    },
+  return withUpstreamDeadline(async (signal) => {
+    const response = await fetch(`${config.supabaseUrl}/rest/v1/${path}`, {
+      ...init,
+      cache: "no-store",
+      signal,
+      headers: {
+        apikey: config.supabasePublishableKey,
+        Authorization: `Bearer ${caller.accessToken}`,
+        Accept: "application/json",
+        ...(init.body ? { "Content-Type": "application/json" } : {}),
+        ...(init.headers ?? {}),
+      },
+    });
+    if (!response.ok) throw new RestRequestError(response.status);
+    if (response.status === 204) return undefined as T;
+    return (await readBoundedJson(response, MAX_REST_RESPONSE_BYTES)) as T;
   });
-  if (!response.ok) throw new RestRequestError(response.status);
-  if (response.status === 204) return undefined as T;
-  const body = await readBoundedJson(response, MAX_REST_RESPONSE_BYTES);
-  return body as T;
 }
 
 const ownerFilter = (userId: string) => `user_id=eq.${encodeURIComponent(userId)}`;
