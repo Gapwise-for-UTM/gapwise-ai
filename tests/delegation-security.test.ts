@@ -3,7 +3,7 @@ import { encryptJson } from "@/src/crypto/envelope";
 import { AiActionSchema, type AiSnapshot } from "@/src/domain/schemas";
 import type { VerifiedCaller } from "@/src/auth/verify";
 
-const TEST_AI_KEY = Buffer.alloc(32, 7).toString("base64");
+const TEST_AI_KEY = "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=";
 
 const db = vi.hoisted(() => ({
   completeActionRow: vi.fn(),
