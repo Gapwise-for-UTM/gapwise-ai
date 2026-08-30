@@ -1,7 +1,7 @@
 import type { AuthInfo } from "@modelcontextprotocol/server";
 import { getRuntimeConfig, supabaseIssuer } from "@/src/config";
 import { MCP_REQUIRED_SCOPES, MCP_RESOURCE_URL } from "@/src/auth/mcp";
-import { fetchUpstream, readBoundedJson } from "@/src/http/upstream";
+import { readBoundedJson, withUpstreamDeadline } from "@/src/http/upstream";
 
 const MAX_AUTH_USER_BYTES = 32 * 1024;
 
@@ -57,26 +57,29 @@ export async function verifySupabaseAccessToken(token: string): Promise<Verified
   if (!token || token.length > 16_384) return null;
   const config = getRuntimeConfig();
   let response: Response;
+  let body: unknown;
   try {
-    response = await fetchUpstream(`${config.supabaseUrl}/auth/v1/user`, {
-      method: "GET",
-      cache: "no-store",
-      headers: {
-        apikey: config.supabasePublishableKey,
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    ({ response, body } = await withUpstreamDeadline(async (signal) => {
+      const nextResponse = await fetch(`${config.supabaseUrl}/auth/v1/user`, {
+        method: "GET",
+        cache: "no-store",
+        signal,
+        headers: {
+          apikey: config.supabasePublishableKey,
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!nextResponse.ok) return { response: nextResponse, body: null };
+      return {
+        response: nextResponse,
+        body: await readBoundedJson(nextResponse, MAX_AUTH_USER_BYTES),
+      };
+    }));
   } catch {
     return null;
   }
   if (!response.ok) return null;
 
-  let body: unknown;
-  try {
-    body = await readBoundedJson(response, MAX_AUTH_USER_BYTES);
-  } catch {
-    return null;
-  }
   if (!body || typeof body !== "object" || Array.isArray(body)) return null;
   const user = body as { id?: unknown };
   if (typeof user.id !== "string" || !/^[0-9a-f-]{36}$/iu.test(user.id)) return null;
