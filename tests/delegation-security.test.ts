@@ -31,7 +31,6 @@ vi.mock("@/src/db/supabase-rest", () => ({
 }));
 
 import {
-  DelegationError,
   publishSnapshot,
   queueAction,
   readSnapshot,
@@ -97,7 +96,7 @@ describe("delegation failure boundaries", () => {
   it("fails closed when no delegation exists", async () => {
     db.getDelegation.mockResolvedValue(null);
 
-    await expect(readSnapshot(caller)).rejects.toMatchObject<Partial<DelegationError>>({
+    await expect(readSnapshot(caller)).rejects.toMatchObject({
       code: "not_enabled",
     });
   });
@@ -108,7 +107,7 @@ describe("delegation failure boundaries", () => {
       delegationRow(value, "22222222-2222-4222-8222-222222222222"),
     );
 
-    await expect(readSnapshot(caller)).rejects.toMatchObject<Partial<DelegationError>>({
+    await expect(readSnapshot(caller)).rejects.toMatchObject({
       code: "invalid_data",
     });
   });
@@ -130,7 +129,7 @@ describe("delegation failure boundaries", () => {
           flexibility: { kind: "flexible", durationMinutes: 60 },
         },
       }),
-    ).rejects.toMatchObject<Partial<DelegationError>>({ code: "forbidden" });
+    ).rejects.toMatchObject({ code: "forbidden" });
 
     expect(db.listQueuedActions).not.toHaveBeenCalled();
     expect(db.insertAction).not.toHaveBeenCalled();
@@ -163,7 +162,7 @@ describe("delegation failure boundaries", () => {
           flexibility: { kind: "flexible", durationMinutes: 60 },
         },
       }),
-    ).rejects.toMatchObject<Partial<DelegationError>>({ code: "conflict" });
+    ).rejects.toMatchObject({ code: "conflict" });
 
     expect(db.listQueuedActions).not.toHaveBeenCalled();
     expect(db.insertAction).not.toHaveBeenCalled();
