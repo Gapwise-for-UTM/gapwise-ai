@@ -1,51 +1,62 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  fetchUpstream,
   readBoundedJson,
   UpstreamResponseTooLargeError,
   UpstreamTimeoutError,
+  withUpstreamDeadline,
 } from "@/src/http/upstream";
 
 afterEach(() => {
-  vi.unstubAllGlobals();
   vi.useRealTimers();
 });
 
 describe("bounded upstream requests", () => {
-  it("passes a bounded AbortSignal to successful upstream fetches", async () => {
-    const fetchMock = vi.fn(async (_input: string | URL, init?: RequestInit) => {
-      expect(init?.signal).toBeInstanceOf(AbortSignal);
-      expect(init?.signal?.aborted).toBe(false);
-      return new Response("ok", { status: 200 });
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    const response = await fetchUpstream("https://example.test", {}, 100);
-    expect(await response.text()).toBe("ok");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+  it("passes an active AbortSignal through successful upstream work", async () => {
+    const value = await withUpstreamDeadline(async (signal) => {
+      expect(signal).toBeInstanceOf(AbortSignal);
+      expect(signal.aborted).toBe(false);
+      return "ok";
+    }, 100);
+    expect(value).toBe("ok");
   });
 
-  it("aborts a hung upstream instead of waiting indefinitely", async () => {
+  it("aborts a hung operation instead of waiting indefinitely", async () => {
     vi.useFakeTimers();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn((_input: string | URL, init?: RequestInit) =>
-        new Promise<Response>((_resolve, reject) => {
-          init?.signal?.addEventListener(
+    const pending = withUpstreamDeadline(
+      (signal) =>
+        new Promise<never>((_resolve, reject) => {
+          signal.addEventListener(
             "abort",
             () => reject(new DOMException("Aborted", "AbortError")),
             { once: true },
           );
         }),
-      ),
+      25,
     );
-
-    const pending = fetchUpstream("https://example.test", {}, 25);
     await vi.advanceTimersByTimeAsync(25);
     await expect(pending).rejects.toBeInstanceOf(UpstreamTimeoutError);
   });
 
-  it("rejects declared and actual response bodies above the bound", async () => {
+  it("keeps the deadline active while an upstream body is being read", async () => {
+    vi.useFakeTimers();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"partial":'));
+      },
+    });
+    const response = new Response(stream);
+    const pending = withUpstreamDeadline(
+      async (signal) => {
+        signal.addEventListener("abort", () => void response.body?.cancel(), { once: true });
+        return readBoundedJson(response, 1024);
+      },
+      25,
+    );
+    await vi.advanceTimersByTimeAsync(25);
+    await expect(pending).rejects.toBeInstanceOf(UpstreamTimeoutError);
+  });
+
+  it("rejects declared and streamed response bodies above the bound", async () => {
     const declared = new Response("{}", {
       headers: { "content-length": "5000" },
     });
