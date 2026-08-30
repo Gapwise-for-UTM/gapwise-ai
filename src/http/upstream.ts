@@ -12,11 +12,10 @@ export class UpstreamResponseTooLargeError extends Error {
   }
 }
 
-export async function fetchUpstream(
-  input: string | URL,
-  init: RequestInit = {},
+export async function withUpstreamDeadline<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
   timeoutMs = DEFAULT_UPSTREAM_TIMEOUT_MS,
-): Promise<Response> {
+): Promise<T> {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
     throw new Error("Upstream timeout must be a positive finite number.");
   }
@@ -29,7 +28,7 @@ export async function fetchUpstream(
   }, timeoutMs);
 
   try {
-    return await fetch(input, { ...init, signal: controller.signal });
+    return await operation(controller.signal);
   } catch (error) {
     if (timedOut) throw new UpstreamTimeoutError();
     throw error;
