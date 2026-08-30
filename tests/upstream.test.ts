@@ -39,15 +39,21 @@ describe("bounded upstream requests", () => {
 
   it("keeps the deadline active while an upstream body is being read", async () => {
     vi.useFakeTimers();
+    let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
+        streamController = controller;
         controller.enqueue(new TextEncoder().encode('{"partial":'));
       },
     });
     const response = new Response(stream);
     const pending = withUpstreamDeadline(
       async (signal) => {
-        signal.addEventListener("abort", () => void response.body?.cancel(), { once: true });
+        signal.addEventListener(
+          "abort",
+          () => streamController?.error(new DOMException("Aborted", "AbortError")),
+          { once: true },
+        );
         return readBoundedJson(response, 1024);
       },
       25,
