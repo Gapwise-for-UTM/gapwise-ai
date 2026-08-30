@@ -51,11 +51,28 @@ export async function readBoundedText(response: Response, maximumBytes: number):
     }
   }
 
-  const text = await response.text();
-  if (new TextEncoder().encode(text).byteLength > maximumBytes) {
-    throw new UpstreamResponseTooLargeError();
+  if (!response.body) return "";
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let bytesRead = 0;
+  let text = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytesRead += value.byteLength;
+      if (bytesRead > maximumBytes) {
+        await reader.cancel().catch(() => undefined);
+        throw new UpstreamResponseTooLargeError();
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode();
+    return text;
+  } finally {
+    reader.releaseLock();
   }
-  return text;
 }
 
 export async function readBoundedJson(
