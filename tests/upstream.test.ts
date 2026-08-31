@@ -33,8 +33,9 @@ describe("bounded upstream requests", () => {
         }),
       25,
     );
+    const rejected = expect(pending).rejects.toBeInstanceOf(UpstreamTimeoutError);
     await vi.advanceTimersByTimeAsync(25);
-    await expect(pending).rejects.toBeInstanceOf(UpstreamTimeoutError);
+    await rejected;
   });
 
   it("keeps the deadline active while an upstream body is being read", async () => {
@@ -58,8 +59,9 @@ describe("bounded upstream requests", () => {
       },
       25,
     );
+    const rejected = expect(pending).rejects.toBeInstanceOf(UpstreamTimeoutError);
     await vi.advanceTimersByTimeAsync(25);
-    await expect(pending).rejects.toBeInstanceOf(UpstreamTimeoutError);
+    await rejected;
   });
 
   it("rejects declared and streamed response bodies above the bound", async () => {
