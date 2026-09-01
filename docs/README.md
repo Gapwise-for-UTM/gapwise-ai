@@ -16,6 +16,9 @@ The repository README provides the public overview; these documents define the i
 - [`DEPLOYMENT.md`](DEPLOYMENT.md) — Vercel/Supabase deployment contract and canonical `ai.gapwise.ca` origin.
 - [`OPERATIONS.md`](OPERATIONS.md) — fail-closed behavior, key rotation, incident response, and operational checks.
 - [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md) — service, real-client, and public-release gates.
+- [`STATUS.md`](STATUS.md) — AI release status and the canonical cross-service status page at `status.gapwise.ca`.
+
+The public Gapwise status page is operator-maintained. It is not a continuous synthetic monitor, historical uptime record, or contractual SLA.
 
 ## Project-level policies
 

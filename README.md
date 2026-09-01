@@ -17,7 +17,7 @@
 
 <br />
 
-**[Gapwise](https://gapwise.ca)** · **[Developers](https://gapwise.ca/developers)** · **[Developer docs](https://docs.gapwise.ca)** · **[MCP service](https://ai.gapwise.ca/api/mcp)** · **[Architecture](docs/ARCHITECTURE.md)** · **[Security](SECURITY.md)**
+**[Gapwise](https://gapwise.ca)** · **[Status](https://status.gapwise.ca)** · **[Developers](https://gapwise.ca/developers)** · **[Developer docs](https://docs.gapwise.ca)** · **[MCP service](https://ai.gapwise.ca/api/mcp)** · **[Architecture](docs/ARCHITECTURE.md)** · **[Security](SECURITY.md)**
 
 </div>
 
@@ -36,7 +36,7 @@ The first-party repositories form one product ecosystem:
 | [`andrewmuratov/gapwise`](https://github.com/andrewmuratov/gapwise) | Core web/PWA product, canonical student-state behavior, deterministic campus intelligence, public API/OpenAPI contract, and SDK source |
 | [`andrewmuratov/gapwise-mobile`](https://github.com/andrewmuratov/gapwise-mobile) | Native iOS and Android client consuming canonical Gapwise contracts and product semantics |
 | **`andrewmuratov/gapwise-ai`** | Permissioned OAuth/MCP layer for explicitly delegated student context and bounded AI-facing actions |
-| [`andrewmuratov/gapwise-docs`](https://github.com/andrewmuratov/gapwise-docs) | Public developer documentation for the API, SDKs, platform behavior, and AI/MCP integration |
+| [`andrewmuratov/gapwise-docs`](https://github.com/andrewmuratov/gapwise-docs) | Public developer documentation plus the operator-maintained Gapwise status surface |
 
 The architectural rule across the ecosystem is simple: **Gapwise owns the facts and deterministic calculations; mobile and AI consume those contracts, and the docs describe the released public surfaces rather than creating new truth.**
 
@@ -131,6 +131,8 @@ See [`docs/PRIVACY.md`](docs/PRIVACY.md) and [`docs/THREAT_MODEL.md`](docs/THREA
 
 `gapwise-ai.vercel.app` remains an infrastructure fallback alias in deployment/configuration code. Public clients and documentation use the first-party `ai.gapwise.ca` origin.
 
+Current cross-service operational information is published at **https://status.gapwise.ca**. That page is operator-maintained and is not a continuous monitor, historical uptime record, or SLA.
+
 The main Gapwise developer surface is available at `https://gapwise.ca/developers`, with API base `https://api.gapwise.ca/v1` and OpenAPI 3.1 contract at `https://api.gapwise.ca/openapi.json`.
 
 ---
@@ -193,7 +195,7 @@ The first-party repositories are separate deployment surfaces with one product i
 | **[`gapwise`](https://github.com/andrewmuratov/gapwise)** | Core web/PWA product, canonical student-state behavior, deterministic UTM campus intelligence, public API, OpenAPI contract, and SDK source | [gapwise.ca](https://gapwise.ca) / [api.gapwise.ca](https://api.gapwise.ca/v1) |
 | **[`gapwise-mobile`](https://github.com/andrewmuratov/gapwise-mobile)** | Native iOS and Android client consuming canonical Gapwise contracts and product semantics | Native mobile app |
 | **[`gapwise-ai`](https://github.com/andrewmuratov/gapwise-ai)** | Permissioned OAuth/MCP layer for explicitly delegated student context and bounded AI actions | [ai.gapwise.ca](https://ai.gapwise.ca/api/mcp) |
-| **[`gapwise-docs`](https://github.com/andrewmuratov/gapwise-docs)** | Public developer documentation for the API, SDKs, platform behavior, and AI/MCP integration | [docs.gapwise.ca](https://docs.gapwise.ca) |
+| **[`gapwise-docs`](https://github.com/andrewmuratov/gapwise-docs)** | Public developer documentation plus the operator-maintained service-status surface | [docs.gapwise.ca](https://docs.gapwise.ca) / [status.gapwise.ca](https://status.gapwise.ca) |
 
 `gapwise` remains authoritative for deterministic timetable, gap, campus, routing, and primary student-state semantics. `gapwise-ai` adds a bounded delegated interface rather than becoming a parallel source of truth; `gapwise-mobile` consumes the same contracts; `gapwise-docs` documents released behavior.
 
@@ -211,6 +213,7 @@ The first-party repositories are separate deployment surfaces with one product i
 | [`ENVIRONMENT.md`](docs/ENVIRONMENT.md) | Runtime configuration and secret handling |
 | [`DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Vercel/Supabase production contract |
 | [`RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) | Remaining broad-client release gates |
+| [`STATUS.md`](docs/STATUS.md) | AI release status and the canonical cross-service status page |
 
 ## Contributing and security
 
