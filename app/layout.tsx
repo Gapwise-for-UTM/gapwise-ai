@@ -15,8 +15,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         style={{
           margin: 0,
           minHeight: "100vh",
-          background: "radial-gradient(circle at 20% -10%, rgba(78,167,254,.10), transparent 34rem), linear-gradient(180deg,#07101a 0%,#08111b 58%,#07101a 100%)",
-          color: "#f3f7fb",
+          background: "radial-gradient(circle at 18% -10%, rgba(139,92,246,.24), transparent 36rem), radial-gradient(circle at 84% 6%, rgba(109,40,217,.14), transparent 34rem), linear-gradient(180deg,#140b1d 0%,#0f0a16 52%,#0b0810 100%)",
+          color: "#f6f1fb",
           fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         }}
       >
