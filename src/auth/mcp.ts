@@ -113,21 +113,21 @@ function schemaToJsonSchema(schema: unknown): Record<string, unknown> {
 }
 
 /**
- * Project the pinned SDK's private tool registry into a conservative tools/list
- * contract for directory clients. This function must never register additional
- * tools: the live surface is defined only by the explicit private registrations
- * in `app/api/mcp/route.ts`. Dormant public-campus definitions remain unregistered
- * until a separate reviewed product/security decision deliberately exposes them.
+ * Project the pinned SDK's registered tool registry into a conservative
+ * `tools/list` contract for directory clients. Tool registration happens
+ * elsewhere: the shared handler wrapper registers the stateless public-campus
+ * tools and `app/api/mcp/route.ts` registers the OAuth-protected private tools.
  *
- * The compatibility projection keeps modification tools marked destructive for
- * approval purposes and narrows a small set of older descriptions to factual
- * capability text rather than model-behavior instructions.
+ * Public tools intentionally have no OAuth `securitySchemes`; private tools
+ * carry `OPENAI_TOOL_META`, which this adapter mirrors to the root field for
+ * clients that need it. The projection also keeps modification tools marked
+ * destructive for approval purposes and narrows selected descriptions to
+ * factual capability text rather than model-behavior instructions.
  *
  * ChatGPT currently requires root-level `securitySchemes` in tools/list while
  * the pinned MCP SDK v2 only serializes custom auth declarations via `_meta`.
- * This small compatibility adapter mirrors only that field and keeps the SDK's
- * private registry usage isolated in one tested place. Remove the security-
- * scheme part when the SDK gains first-class root-level serialization.
+ * Remove that compatibility mirror when the SDK gains first-class root-level
+ * serialization, while preserving the public/private per-tool auth boundary.
  */
 export function installToolSecuritySchemeProjection(server: unknown): void {
   const privateServer = server as McpServerPrivate;
