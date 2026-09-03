@@ -45,6 +45,23 @@ export class RestRequestError extends Error {
   }
 }
 
+export class OwnershipBoundaryError extends Error {
+  constructor() {
+    super("Supabase returned a row outside the authenticated ownership boundary.");
+  }
+}
+
+export function assertOwnedRows<T extends { user_id: string }>(caller: VerifiedCaller, rows: T[]): T[] {
+  if (rows.some((row) => row.user_id !== caller.userId)) {
+    throw new OwnershipBoundaryError();
+  }
+  return rows;
+}
+
+function assertWriteOwner(caller: VerifiedCaller, userId: string): void {
+  if (userId !== caller.userId) throw new OwnershipBoundaryError();
+}
+
 async function rest<T>(caller: VerifiedCaller, path: string, init: RequestInit = {}): Promise<T> {
   const config = getRuntimeConfig();
   return withUpstreamDeadline(async (signal) => {
@@ -69,9 +86,12 @@ async function rest<T>(caller: VerifiedCaller, path: string, init: RequestInit =
 const ownerFilter = (userId: string) => `user_id=eq.${encodeURIComponent(userId)}`;
 
 export async function getDelegation(caller: VerifiedCaller): Promise<DelegationRow | null> {
-  const rows = await rest<DelegationRow[]>(
+  const rows = assertOwnedRows(
     caller,
-    `ai_delegations?select=*&${ownerFilter(caller.userId)}&limit=1`,
+    await rest<DelegationRow[]>(
+      caller,
+      `ai_delegations?select=*&${ownerFilter(caller.userId)}&limit=1`,
+    ),
   );
   return rows[0] ?? null;
 }
@@ -80,11 +100,15 @@ export async function insertDelegation(
   caller: VerifiedCaller,
   row: Omit<DelegationRow, "created_at" | "updated_at">,
 ): Promise<DelegationRow> {
-  const rows = await rest<DelegationRow[]>(caller, "ai_delegations?select=*", {
-    method: "POST",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify(row),
-  });
+  assertWriteOwner(caller, row.user_id);
+  const rows = assertOwnedRows(
+    caller,
+    await rest<DelegationRow[]>(caller, "ai_delegations?select=*", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(row),
+    }),
+  );
   if (!rows[0]) throw new Error("Delegation insert returned no row.");
   return rows[0];
 }
@@ -94,14 +118,17 @@ export async function updateDelegationCas(
   expectedRevision: number,
   patch: Partial<Pick<DelegationRow, "enabled" | "revision" | "permissions" | "snapshot_schema_version" | "crypto_version" | "snapshot_ciphertext" | "snapshot_nonce">>,
 ): Promise<DelegationRow | null> {
-  const rows = await rest<DelegationRow[]>(
+  const rows = assertOwnedRows(
     caller,
-    `ai_delegations?select=*&${ownerFilter(caller.userId)}&revision=eq.${expectedRevision}`,
-    {
-      method: "PATCH",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify({ ...patch, updated_at: new Date().toISOString() }),
-    },
+    await rest<DelegationRow[]>(
+      caller,
+      `ai_delegations?select=*&${ownerFilter(caller.userId)}&revision=eq.${expectedRevision}`,
+      {
+        method: "PATCH",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({ ...patch, updated_at: new Date().toISOString() }),
+      },
+    ),
   );
   return rows[0] ?? null;
 }
@@ -124,11 +151,15 @@ export async function insertAction(
   caller: VerifiedCaller,
   row: Omit<ActionRow, "id" | "created_at" | "completed_at" | "result_code">,
 ): Promise<ActionRow> {
-  const rows = await rest<ActionRow[]>(caller, "ai_pending_actions?select=*", {
-    method: "POST",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify(row),
-  });
+  assertWriteOwner(caller, row.user_id);
+  const rows = assertOwnedRows(
+    caller,
+    await rest<ActionRow[]>(caller, "ai_pending_actions?select=*", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(row),
+    }),
+  );
   if (!rows[0]) throw new Error("Action insert returned no row.");
   return rows[0];
 }
@@ -137,9 +168,12 @@ export async function getActionByIdempotencyKey(
   caller: VerifiedCaller,
   idempotencyKey: string,
 ): Promise<ActionRow | null> {
-  const rows = await rest<ActionRow[]>(
+  const rows = assertOwnedRows(
     caller,
-    `ai_pending_actions?select=*&${ownerFilter(caller.userId)}&idempotency_key=eq.${encodeURIComponent(idempotencyKey)}&limit=1`,
+    await rest<ActionRow[]>(
+      caller,
+      `ai_pending_actions?select=*&${ownerFilter(caller.userId)}&idempotency_key=eq.${encodeURIComponent(idempotencyKey)}&limit=1`,
+    ),
   );
   return rows[0] ?? null;
 }
@@ -149,9 +183,12 @@ export async function listQueuedActions(
   limit = 50,
 ): Promise<ActionRow[]> {
   const safeLimit = Math.max(1, Math.min(50, Math.floor(limit)));
-  return rest<ActionRow[]>(
+  return assertOwnedRows(
     caller,
-    `ai_pending_actions?select=*&${ownerFilter(caller.userId)}&status=eq.queued&order=created_at.asc&limit=${safeLimit}`,
+    await rest<ActionRow[]>(
+      caller,
+      `ai_pending_actions?select=*&${ownerFilter(caller.userId)}&status=eq.queued&order=created_at.asc&limit=${safeLimit}`,
+    ),
   );
 }
 
@@ -161,18 +198,21 @@ export async function completeActionRow(
   status: "applied" | "rejected",
   resultCode: string | null,
 ): Promise<ActionRow | null> {
-  const rows = await rest<ActionRow[]>(
+  const rows = assertOwnedRows(
     caller,
-    `ai_pending_actions?select=*&${ownerFilter(caller.userId)}&id=eq.${encodeURIComponent(actionId)}&status=eq.queued`,
-    {
-      method: "PATCH",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify({
-        status,
-        result_code: resultCode,
-        completed_at: new Date().toISOString(),
-      }),
-    },
+    await rest<ActionRow[]>(
+      caller,
+      `ai_pending_actions?select=*&${ownerFilter(caller.userId)}&id=eq.${encodeURIComponent(actionId)}&status=eq.queued`,
+      {
+        method: "PATCH",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({
+          status,
+          result_code: resultCode,
+          completed_at: new Date().toISOString(),
+        }),
+      },
+    ),
   );
   return rows[0] ?? null;
 }
@@ -180,9 +220,12 @@ export async function completeActionRow(
 export async function listApprovedOAuthClients(
   caller: VerifiedCaller,
 ): Promise<ApprovedOAuthClientRow[]> {
-  return rest<ApprovedOAuthClientRow[]>(
+  return assertOwnedRows(
     caller,
-    `ai_oauth_clients?select=user_id,client_id,client_name,created_at&${ownerFilter(caller.userId)}&order=created_at.asc`,
+    await rest<ApprovedOAuthClientRow[]>(
+      caller,
+      `ai_oauth_clients?select=user_id,client_id,client_name,created_at&${ownerFilter(caller.userId)}&order=created_at.asc`,
+    ),
   );
 }
 
