@@ -13,6 +13,8 @@ Checked items have been verified in code, CI, production infrastructure, or the 
 - [x] Unauthenticated MCP requests receive an OAuth Bearer challenge and fail closed.
 - [x] Revoked delegation deletes delegated state/actions and subsequent reads/writes fail closed.
 - [x] Cross-user/OAuth-client RLS tests prove primary-data isolation.
+- [x] AI REST reads independently reject any returned delegation/action/approved-client row whose `user_id` differs from the cryptographically verified caller.
+- [x] AI delegation/action inserts independently reject owner IDs that differ from the authenticated caller.
 - [x] Snapshot/action plaintext is encrypted before database storage and a database-only reader lacks the AI data key.
 - [x] Stale revision writes fail closed.
 - [x] Academic meetings cannot be mutated by any exposed tool.
@@ -30,7 +32,7 @@ Checked items have been verified in code, CI, production infrastructure, or the 
 
 - [ ] Claude completes the real OAuth/read/write/revocation matrix.
 - [ ] ChatGPT completes the real OAuth/read/write/revocation matrix for every enabled tool supported by the current plan/workspace.
-- [ ] No-delegation, read-only, write-disabled, stale-write, academic-immutability, revoke, and re-auth scenarios are exercised against production-equivalent identities.
+- [ ] No-delegation, read-only, write-disabled, stale-write, academic-immutability, cross-account refusal, revoke, and re-auth scenarios are exercised against production-equivalent identities.
 
 ## Public repository gate
 
@@ -43,12 +45,13 @@ Checked items have been verified in code, CI, production infrastructure, or the 
 - [x] The security model does not rely on source secrecy.
 - [x] Repository visibility was intentionally changed to public by the owner.
 - [x] A fresh reachable-history high-confidence secret scan, typecheck, unit-test suite, production dependency audit, and production build passed on the 2026-08-30 release-evidence checkpoint merged in PR #33.
+- [x] The application-layer cross-account ownership assertion suite passed in CI before PR #45 was merged.
 - [ ] The final exact-head current-tree/history scan is rerun after the real-client matrices and any resulting fixes, immediately before the broad-client release claim.
 
 ## Remaining broad-client release gates
 
 1. Complete the real ChatGPT and Claude OAuth/read/write/revoke matrices.
-2. Exercise the production-equivalent no-delegation, read-only, write-disabled, stale-write, academic-immutability, revoke, and re-auth cases.
+2. Exercise the production-equivalent no-delegation, read-only, write-disabled, stale-write, academic-immutability, cross-account refusal, revoke, and re-auth cases.
 3. Run the final current-tree/history secret scan and exact-head CI/deployment verification after those external matrices and any resulting fixes.
 
 The repository is public because the design is intended to remain secure under source disclosure. That decision does not by itself certify every external MCP client or complete the remaining integration tests.
