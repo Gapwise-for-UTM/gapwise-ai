@@ -26,7 +26,7 @@
 
 Gapwise AI is the permissioned AI integration layer of **Gapwise**, a multi-surface campus-intelligence ecosystem created and engineered by **Andrew Muratov**.
 
-Gapwise is not merely a timetable website. It spans a student web/PWA product, native mobile client, deterministic public campus API and SDKs, an open data/provenance portal, developer documentation, an independent operational status service, and this separately deployed OAuth/MCP boundary for AI clients.
+Gapwise is not merely a timetable website. It spans a student web/PWA product, native mobile client, deterministic public campus API and published JavaScript/TypeScript and Python SDKs, an open data/provenance portal, developer documentation, an independent operational status service, and this separately deployed OAuth/MCP boundary for AI clients.
 
 Andrew's work across the ecosystem spans **full-stack software engineering, cybersecurity and privacy engineering, platform architecture, API and SDK design, data engineering, developer infrastructure, mobile engineering, and permissioned AI integration**.
 
@@ -91,11 +91,28 @@ OAuth protected-resource metadata and service health are published at the same f
 
 ---
 
+## Public developer platform
+
+Gapwise AI is separate from the unauthenticated public campus platform. Developers who need public UTM campus intelligence without private student context should use the canonical v1 API or one of the published first-party SDKs:
+
+```bash
+npm install @gapwise/sdk@0.1.0
+python -m pip install gapwise==0.1.0
+```
+
+- API: `https://api.gapwise.ca/v1`
+- OpenAPI: `https://api.gapwise.ca/openapi.json`
+- Docs: `https://docs.gapwise.ca`
+
+The Python package is published on PyPI through Trusted Publishing and has been independently clean-installed against the production API. These public SDKs do not grant access to delegated private AI context; the OAuth/MCP boundary remains separate by design.
+
+---
+
 ## Gapwise ecosystem
 
 | Repository | Role | Primary surface |
 | --- | --- | --- |
-| **[`gapwise`](https://github.com/andrewmuratov/gapwise)** | Core web/PWA, canonical student-state behavior, deterministic campus engine, API, OpenAPI, and SDK source | [gapwise.ca](https://gapwise.ca) / [api.gapwise.ca](https://api.gapwise.ca/v1) |
+| **[`gapwise`](https://github.com/andrewmuratov/gapwise)** | Core web/PWA, canonical student-state behavior, deterministic campus engine, public API, OpenAPI, and published SDK source | [gapwise.ca](https://gapwise.ca) / [api.gapwise.ca](https://api.gapwise.ca/v1) |
 | **[`gapwise-mobile`](https://github.com/andrewmuratov/gapwise-mobile)** | Native iOS and Android client | Native mobile app |
 | **[`gapwise-ai`](https://github.com/andrewmuratov/gapwise-ai)** | OAuth/MCP layer for explicitly delegated student context and bounded AI actions | [ai.gapwise.ca](https://ai.gapwise.ca) |
 | **[`gapwise-data`](https://github.com/andrewmuratov/gapwise-data)** | Open campus-data, provenance, schema, validation, and reuse portal | [data.gapwise.ca](https://data.gapwise.ca) |
