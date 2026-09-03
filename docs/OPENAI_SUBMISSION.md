@@ -1,6 +1,6 @@
 # OpenAI app submission checklist
 
-This document is the release gate for submitting the production Gapwise MCP service to OpenAI.
+This document is the OpenAI-specific release gate for the production Gapwise MCP service. Use `DIRECTORY_METADATA.md`, `REVIEWER_GUIDE.md`, and `SUBMISSION_CHECKLIST.md` as the canonical cross-platform listing/reviewer package.
 
 ## Production identity
 
@@ -9,6 +9,10 @@ This document is the release gate for submitting the production Gapwise MCP serv
 - OAuth authorization server: the Gapwise Supabase Auth project discovered from protected-resource metadata
 - Domain challenge: `https://ai.gapwise.ca/.well-known/openai-apps-challenge`
 - Public product site: `https://gapwise.ca`
+- AI product page: `https://gapwise.ca/ai`
+- Privacy: `https://gapwise.ca/privacy`
+- Terms: `https://gapwise.ca/terms`
+- Support: `https://gapwise.ca/support`
 
 The infrastructure alias `https://gapwise-ai.vercel.app` is not a second OAuth resource. Production metadata canonicalizes both hostnames to `https://ai.gapwise.ca/api/mcp`.
 
@@ -18,49 +22,55 @@ When OpenAI supplies a domain-verification token, set it only in production as `
 
 ## Tool review assertions
 
-All registered tools:
+The release surface contains **17 tools**:
 
-- advertise OAuth in both root-level `securitySchemes` and the compatibility `_meta.securitySchemes` mirror;
-- request only the supported minimal `email` identity scope;
-- remain discoverable before authentication;
-- return an in-band `_meta["mcp/www_authenticate"]` challenge when invoked without a valid caller;
-- derive the Gapwise user exclusively from the verified bearer token;
-- reject ordinary browser-session tokens because they lack an OAuth `client_id` and MCP audience;
-- reject OAuth bearer tokens whose `aud` does not contain exactly `https://ai.gapwise.ca/api/mcp`;
-- reject tokens missing the required granted scope;
-- declare structured output schemas as well as input schemas.
+- four public stateless UTM campus-intelligence tools with no private OAuth security declaration;
+- nine OAuth-protected private read/status/planning tools; and
+- four OAuth-protected bounded write tools.
 
-Write tools additionally require the current snapshot revision and the corresponding explicit delegation permission. Academic course meetings cannot be mutated through the MCP surface.
+For private tools, Gapwise:
+
+- advertises OAuth through the compatibility metadata/root projection required by the client;
+- requests only the supported minimal `email` identity scope;
+- derives the Gapwise user exclusively from the verified bearer token;
+- rejects ordinary browser-session tokens because they lack an OAuth `client_id` and MCP audience;
+- rejects OAuth bearer tokens whose `aud` does not contain exactly `https://ai.gapwise.ca/api/mcp`;
+- rejects tokens missing the required granted scope; and
+- returns an in-band `_meta["mcp/www_authenticate"]` challenge when private execution lacks a valid caller.
+
+Public tools do not inherit those OAuth declarations and never access private Gapwise state. All tools declare input/output schemas and bounded capability descriptions. Write tools additionally require the current snapshot revision and the corresponding explicit delegation permission. Academic course meetings cannot be mutated through the MCP surface.
 
 ## Positive reviewer test cases
 
-1. **Check connection status** — Connect a Gapwise account, invoke `get_ai_delegation_status`, and confirm the tool reports whether AI access is enabled without exposing timetable content when disabled.
-2. **Read one day** — With schedule delegation enabled, invoke `get_my_day` for a weekday represented in the user's source-backed timetable and confirm returned meetings match Gapwise exactly.
-3. **Read deterministic gap plan** — Invoke `get_my_gap_plan` for a delegated gap and confirm route status, confidence, travel/buffer timing, and recommendation reasons are preserved rather than recomputed by the model.
-4. **Queue a personal item** — With personal-item write permission enabled, read the current revision and invoke `create_personal_item`; confirm the response is a queued action rather than a direct academic schedule mutation.
-5. **Update delegated planning preferences** — With preference write permission enabled, invoke `update_gap_preferences` using the current revision and confirm the bounded patch is queued.
+1. **Public building lookup** — Ask what a known UTM building code means and confirm the public tool works without private Gapwise schedule access.
+2. **Public route** — Request a building-to-building route and confirm Gapwise route status/confidence/accessibility warnings are preserved.
+3. **Check private connection status** — Connect a synthetic Gapwise account, invoke `get_ai_delegation_status`, and confirm the tool reports delegation state without exposing timetable content when disabled.
+4. **Read one day** — With schedule delegation enabled, invoke `get_my_day` for a represented weekday and confirm returned meetings match Gapwise exactly.
+5. **Find weekly opportunity** — Request a realistic study interval and confirm the client uses `find_my_weekly_opportunities` rather than model-side interval subtraction.
+6. **Queue a personal item** — With personal-item write permission enabled, read the current revision and invoke `create_personal_item`; confirm the response is a queued action rather than a direct academic schedule mutation.
 
 ## Negative reviewer test cases
 
-1. **Unauthenticated tool call** — Invoke any tool before connecting Gapwise. The call must fail with `isError: true`, include `_meta["mcp/www_authenticate"]`, and return no private Gapwise data.
-2. **Unapproved OAuth client** — Register/authenticate a client that has not been approved in Gapwise. Its token must keep the normal Supabase audience and fail the MCP audience check.
-3. **Wrong audience or missing scope** — Present a cryptographically valid token without the exact MCP audience or required scope. The MCP call must remain unauthenticated.
-4. **Stale revision write** — Read a snapshot, advance the Gapwise state, then retry a write using the old revision. The tool must return a conflict and make no dependent assumption.
-5. **Forbidden academic mutation / missing permission** — Attempt to target an academic class with a personal-item write path, or disable the relevant write delegation before making a write. The action must be rejected rather than broadening authority.
+1. **Private call before connection** — Invoke a private tool before connecting Gapwise. The call must fail with the OAuth challenge and return no private data.
+2. **Unapproved OAuth client** — An unapproved OAuth client must not receive the MCP audience needed for private access.
+3. **Wrong audience or missing scope** — A cryptographically valid token without the exact MCP audience or required scope remains unauthenticated.
+4. **Stale revision write** — A write using an old snapshot revision must fail without silently overwriting newer state.
+5. **Forbidden academic mutation / missing permission** — Attempts to alter an academic meeting or exceed delegated write authority must fail.
+6. **Revocation** — Revoke the connector/delegation and confirm subsequent private reads/writes fail until explicit reauthorization.
 
 ## Release checks before submission
 
 1. `npm run check` and CI pass on the exact production commit.
-2. Supabase Auth uses `public.gapwise_ai_access_token_hook` as the Custom Access Token Hook.
-3. Supabase OAuth Server is enabled with Gapwise `/oauth/consent` and the client-registration behavior required by the target MCP clients.
-4. New approved OAuth tokens contain `aud = "https://ai.gapwise.ca/api/mcp"`; unapproved OAuth clients and ordinary browser sessions do not.
-5. Both production hostnames publish protected-resource metadata whose `resource` is exactly `https://ai.gapwise.ca/api/mcp` and whose supported scope includes `email`.
-6. Unauthenticated MCP initialization and `tools/list` succeed; root tool definitions expose OAuth security schemes; unauthenticated `tools/call` returns the in-band challenge.
-7. A newly issued approved OAuth token succeeds against the MCP endpoint; ordinary browser, unapproved-client, wrong-audience, expired, and missing-scope tokens fail.
-8. The OpenAI domain challenge is configured only when the submission portal provides a token, and its live response body is exactly that token.
-9. OpenAI's tool scan reports the **13 tools currently registered by `app/api/mcp/route.ts`** with accurate input/output schemas, descriptions, and annotations. The unregistered public-campus definitions are not counted until they are deliberately wired into the handler.
-10. Complete the read/write/revoke matrix in ChatGPT and Claude using non-sensitive test data before broad launch.
+2. Supabase OAuth Server and Gapwise `/oauth/consent` are active with the intended MCP client-registration flow.
+3. Approved OAuth tokens contain the exact MCP audience; browser/unapproved/wrong-audience tokens do not.
+4. Production protected-resource metadata identifies `https://ai.gapwise.ca/api/mcp` and the supported `email` scope.
+5. MCP initialization and `tools/list` expose all 17 tools with four public tools lacking OAuth declarations and 13 private tools carrying them.
+6. The production OpenAI domain challenge is configured only if/when the current submission portal supplies a token.
+7. The complete real ChatGPT OAuth/read/write/revoke and negative-path matrix in `CLIENT_VALIDATION.md` passes against the exact release SHA.
+8. The synthetic reviewer account is reset to the fixture in `TEST_ACCOUNT_SPEC.md` and credentials are supplied only through the private submission mechanism.
+9. Listing metadata, legal/support URLs, country availability, branding, and reviewer prompts are populated from the canonical release docs.
+10. Do not claim OpenAI endorsement; describe directory availability factually after approval.
 
 ## Release notes template
 
-> Gapwise adds a permissioned MCP integration for AI clients. Connected users can read explicitly delegated timetable, gap-planning, and preference data and may queue bounded personal-item or preference changes when those permissions are enabled. Academic course meetings remain source-backed and read-only. OAuth credentials are user-scoped, resource-bound, and protected by existing Supabase RLS plus Gapwise's per-user OAuth-client approval gate.
+> Gapwise provides a remote MCP integration that combines stateless UTM campus intelligence with explicitly delegated private timetable/planning context. Connected users can ask about schedules, availability, routes, and Gapwise gap assessments and may queue bounded personal-item or preference changes when those permissions are enabled. Academic course meetings remain source-backed and read-only. Private OAuth credentials are user-scoped, resource-bound, and protected by Gapwise's approval, RLS, ownership, encryption, and revocation boundaries.
