@@ -53,6 +53,12 @@ export function projectedToolAnnotations(annotations: unknown): unknown {
     return { ...value, destructiveHint: true };
   }
 
+  if (value["readOnlyHint"] === true && value["destructiveHint"] === undefined) {
+    // Make the non-destructive property explicit rather than asking directory
+    // scanners or clients to infer it from readOnlyHint.
+    return { ...value, destructiveHint: false };
+  }
+
   return value;
 }
 
@@ -120,9 +126,9 @@ function schemaToJsonSchema(schema: unknown): Record<string, unknown> {
  *
  * Public tools intentionally have no OAuth `securitySchemes`; private tools
  * carry `OPENAI_TOOL_META`, which this adapter mirrors to the root field for
- * clients that need it. The projection also keeps modification tools marked
- * destructive for approval purposes and narrows selected descriptions to
- * factual capability text rather than model-behavior instructions.
+ * clients that need it. The projection also makes destructive/non-destructive
+ * semantics explicit and narrows selected descriptions to factual capability
+ * text rather than model-behavior instructions.
  *
  * ChatGPT currently requires root-level `securitySchemes` in tools/list while
  * the pinned MCP SDK v2 only serializes custom auth declarations via `_meta`.
