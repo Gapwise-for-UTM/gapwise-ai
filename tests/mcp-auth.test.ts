@@ -27,7 +27,7 @@ describe("OpenAI MCP tool authentication metadata", () => {
     expect(result._meta["mcp/www_authenticate"][0]).toContain("error_description=");
   });
 
-  it("projects OAuth metadata only onto protected tools and explicit safety annotations onto both", () => {
+  it("projects OAuth metadata only onto protected tools and preserves exact safety annotations", () => {
     let toolsList: (() => unknown) | undefined;
     const setRequestHandler = vi.fn((method: string, handler: () => unknown) => {
       if (method === "tools/list") toolsList = handler;
@@ -49,6 +49,32 @@ describe("OpenAI MCP tool authentication metadata", () => {
           annotations: { readOnlyHint: true, openWorldHint: false },
           _meta: OPENAI_TOOL_META,
         },
+        create_personal_item: {
+          enabled: true,
+          title: "Create a personal Gapwise timetable item",
+          description: "Queue a personal item",
+          inputSchema: z.object({ expectedRevision: z.number() }).strict(),
+          annotations: {
+            readOnlyHint: false,
+            destructiveHint: false,
+            idempotentHint: true,
+            openWorldHint: false,
+          },
+          _meta: OPENAI_TOOL_META,
+        },
+        delete_personal_item: {
+          enabled: true,
+          title: "Delete a personal Gapwise timetable item",
+          description: "Queue deletion of a personal item",
+          inputSchema: z.object({ expectedRevision: z.number(), itemId: z.string() }).strict(),
+          annotations: {
+            readOnlyHint: false,
+            destructiveHint: true,
+            idempotentHint: true,
+            openWorldHint: false,
+          },
+          _meta: OPENAI_TOOL_META,
+        },
       },
       server: { setRequestHandler },
     };
@@ -58,10 +84,13 @@ describe("OpenAI MCP tool authentication metadata", () => {
     expect(toolsList).toBeTypeOf("function");
 
     const result = toolsList!() as { tools: Array<Record<string, unknown>> };
-    expect(result.tools).toHaveLength(2);
+    expect(result.tools).toHaveLength(4);
 
-    const publicTool = result.tools.find((tool) => tool["name"] === "list_utm_buildings");
-    const privateTool = result.tools.find((tool) => tool["name"] === "get_my_day");
+    const byName = (name: string) => result.tools.find((tool) => tool["name"] === name);
+    const publicTool = byName("list_utm_buildings");
+    const privateTool = byName("get_my_day");
+    const createTool = byName("create_personal_item");
+    const deleteTool = byName("delete_personal_item");
 
     expect(publicTool?.["securitySchemes"]).toBeUndefined();
     expect(publicTool?.["_meta"]).toBeUndefined();
@@ -81,6 +110,16 @@ describe("OpenAI MCP tool authentication metadata", () => {
       readOnlyHint: true,
       openWorldHint: false,
       destructiveHint: false,
+    });
+    expect(createTool?.["annotations"]).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    });
+    expect(deleteTool?.["annotations"]).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
     });
   });
 });
