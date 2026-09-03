@@ -1,0 +1,162 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: #0b0810;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+img {
+  max-width: 100%;
+}
+
+@media (max-width: 720px) {
+  header > div {
+    width: calc(100% - 32px) !important;
+    min-height: 72px !important;
+    gap: 12px !important;
+  }
+
+  header > div > a {
+    flex-shrink: 0;
+    font-size: 16px;
+  }
+
+  header nav {
+    gap: 0 !important;
+  }
+
+  header nav a {
+    padding: 8px !important;
+    white-space: nowrap;
+  }
+
+  main {
+    width: calc(100% - 32px) !important;
+    padding: 28px 0 calc(56px + env(safe-area-inset-bottom)) !important;
+  }
+
+  main > section:first-child {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 14px !important;
+  }
+
+  main > section:first-child > div,
+  main > section:first-child > aside,
+  main > section:nth-child(2) > article {
+    min-width: 0;
+  }
+
+  main > section:first-child > div {
+    padding: 30px 24px 28px !important;
+    border-radius: 20px !important;
+  }
+
+  main > section:first-child h1 {
+    max-width: 100% !important;
+    margin: 24px 0 20px !important;
+    font-size: clamp(2.65rem, 12.5vw, 3.6rem) !important;
+    line-height: .96 !important;
+    letter-spacing: -.06em !important;
+    overflow-wrap: anywhere;
+  }
+
+  main > section:first-child > div > p:last-of-type {
+    font-size: 15px !important;
+    line-height: 1.6 !important;
+  }
+
+  main > section:first-child > div > div:last-child {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    margin-top: 26px !important;
+  }
+
+  main > section:first-child > div > div:last-child a {
+    width: 100%;
+    min-height: 48px !important;
+  }
+
+  main > section:first-child > aside {
+    padding: 26px 24px !important;
+    border-radius: 20px !important;
+  }
+
+  main > section:first-child > aside > img {
+    width: 44px;
+    height: 44px;
+    margin-bottom: 24px !important;
+  }
+
+  main > section:first-child > aside h2 {
+    font-size: 26px !important;
+  }
+
+  main > section:first-child > aside > div {
+    padding: 16px !important;
+  }
+
+  main > section:nth-child(2) {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px !important;
+    margin-top: 14px !important;
+  }
+
+  main > section:nth-child(2) > article {
+    padding: 22px !important;
+    border-radius: 16px !important;
+  }
+
+  main > section:nth-child(2) > article > div {
+    margin-bottom: 18px !important;
+  }
+
+  main > section:nth-child(2) h3 {
+    font-size: 16px !important;
+  }
+
+  main > section:nth-child(2) p {
+    font-size: 14px !important;
+  }
+}
+
+@media (max-width: 390px) {
+  header > div {
+    width: calc(100% - 24px) !important;
+  }
+
+  header > div > a {
+    gap: 8px !important;
+    font-size: 15px;
+  }
+
+  header > div > a img {
+    width: 27px;
+    height: 27px;
+  }
+
+  header nav {
+    font-size: 12px !important;
+  }
+
+  header nav a {
+    padding-inline: 6px !important;
+  }
+
+  main {
+    width: calc(100% - 24px) !important;
+  }
+
+  main > section:first-child > div,
+  main > section:first-child > aside {
+    padding-inline: 20px !important;
+  }
+}
