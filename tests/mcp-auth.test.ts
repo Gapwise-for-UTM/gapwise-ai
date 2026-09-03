@@ -27,7 +27,7 @@ describe("OpenAI MCP tool authentication metadata", () => {
     expect(result._meta["mcp/www_authenticate"][0]).toContain("error_description=");
   });
 
-  it("projects OAuth metadata only onto protected tools", () => {
+  it("projects OAuth metadata only onto protected tools and explicit safety annotations onto both", () => {
     let toolsList: (() => unknown) | undefined;
     const setRequestHandler = vi.fn((method: string, handler: () => unknown) => {
       if (method === "tools/list") toolsList = handler;
@@ -65,6 +65,11 @@ describe("OpenAI MCP tool authentication metadata", () => {
 
     expect(publicTool?.["securitySchemes"]).toBeUndefined();
     expect(publicTool?.["_meta"]).toBeUndefined();
+    expect(publicTool?.["annotations"]).toEqual({
+      readOnlyHint: true,
+      openWorldHint: false,
+      destructiveHint: false,
+    });
 
     expect(privateTool?.["securitySchemes"]).toEqual([
       { type: "oauth2", scopes: ["email"] },
@@ -72,5 +77,10 @@ describe("OpenAI MCP tool authentication metadata", () => {
     expect((privateTool?.["_meta"] as Record<string, unknown>)["securitySchemes"]).toEqual([
       { type: "oauth2", scopes: ["email"] },
     ]);
+    expect(privateTool?.["annotations"]).toEqual({
+      readOnlyHint: true,
+      openWorldHint: false,
+      destructiveHint: false,
+    });
   });
 });
