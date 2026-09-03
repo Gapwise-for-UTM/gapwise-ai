@@ -17,7 +17,7 @@
 
 Public campus developers use equal first-party SDKs owned by the core repository:
 
-- TypeScript `@gapwise/sdk`: npm `0.1.0` is published. The same package identity is reserved on JSR and linked to the core GitHub repository for OIDC publishing; a JSR version is not released until the registry confirms it. Node, Bun, and Deno are runtime targets for one portable TypeScript implementation, not separate SDKs.
+- TypeScript `@gapwise/sdk`: version `0.1.0` is published on both npm and JSR through provenance-backed GitHub Actions publishing. Node, Bun, and Deno are runtime targets for one portable TypeScript implementation, not separate SDKs.
 - Python `gapwise==0.1.0`: published on PyPI through Trusted Publishing.
 
 These SDKs intentionally expose public campus intelligence only. They do not grant access to private student schedules, delegation state, queued actions, or AI authorization.
