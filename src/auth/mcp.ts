@@ -45,21 +45,16 @@ export function projectedToolAnnotations(annotations: unknown): unknown {
   }
 
   const value = annotations as Record<string, unknown>;
-  if (value["readOnlyHint"] === false) {
-    // Directory clients use destructiveHint as the conservative user-approval
-    // boundary for tools that modify private state. Gapwise write tools are
-    // queued/revision-safe, but they still modify data and should always be
-    // surfaced as such to the client.
-    return { ...value, destructiveHint: true };
-  }
+  if (typeof value["destructiveHint"] === "boolean") return value;
 
-  if (value["readOnlyHint"] === true && value["destructiveHint"] === undefined) {
-    // Make the non-destructive property explicit rather than asking directory
-    // scanners or clients to infer it from readOnlyHint.
-    return { ...value, destructiveHint: false };
-  }
-
-  return value;
+  // Directory scanners should never have to infer the destructive property.
+  // Read-only tools are explicitly non-destructive. Mutating tools in the live
+  // Gapwise surface already declare their exact semantics at registration:
+  // create/update/preference writes are false; deletion is true. If a future
+  // write omits the annotation, defaulting false avoids incorrectly presenting
+  // an ordinary state change as destructive while CI/review can flag the
+  // missing explicit registration annotation.
+  return { ...value, destructiveHint: false };
 }
 
 function quoteChallenge(value: string): string {
@@ -126,9 +121,9 @@ function schemaToJsonSchema(schema: unknown): Record<string, unknown> {
  *
  * Public tools intentionally have no OAuth `securitySchemes`; private tools
  * carry `OPENAI_TOOL_META`, which this adapter mirrors to the root field for
- * clients that need it. The projection also makes destructive/non-destructive
- * semantics explicit and narrows selected descriptions to factual capability
- * text rather than model-behavior instructions.
+ * clients that need it. The projection preserves exact destructive semantics,
+ * makes omitted non-destructive annotations explicit, and narrows selected
+ * descriptions to factual capability text rather than model-behavior instructions.
  *
  * ChatGPT currently requires root-level `securitySchemes` in tools/list while
  * the pinned MCP SDK v2 only serializes custom auth declarations via `_meta`.
