@@ -17,7 +17,7 @@ const EXPECTED_PRIVATE_TOOLS = [
   "update_gap_preferences",
 ] as const;
 
-const DORMANT_PUBLIC_TOOLS = [
+const EXPECTED_PUBLIC_TOOLS = [
   "list_utm_buildings",
   "get_utm_building",
   "route_between_utm_buildings",
@@ -25,7 +25,7 @@ const DORMANT_PUBLIC_TOOLS = [
 ] as const;
 
 describe("live MCP surface contract", () => {
-  it("registers exactly the 13 permissioned private tools", async () => {
+  it("registers exactly the 13 permissioned private tools in the private route", async () => {
     const source = await readFile("app/api/mcp/route.ts", "utf8");
     const registered = [
       ...source.matchAll(/server\.registerTool\(\s*\n?\s*["']([^"']+)["']/gu),
@@ -33,16 +33,34 @@ describe("live MCP surface contract", () => {
 
     expect(registered).toEqual([...EXPECTED_PRIVATE_TOOLS]);
     expect(new Set(registered).size).toBe(EXPECTED_PRIVATE_TOOLS.length);
-    for (const name of DORMANT_PUBLIC_TOOLS) expect(registered).not.toContain(name);
+    for (const name of EXPECTED_PUBLIC_TOOLS) expect(registered).not.toContain(name);
   });
 
-  it("keeps the dormant public-campus registrar outside live registration paths", async () => {
-    const [routeSource, projectionSource] = await Promise.all([
-      readFile("app/api/mcp/route.ts", "utf8"),
-      readFile("src/auth/mcp.ts", "utf8"),
+  it("registers exactly four stateless public campus tools through the shared handler", async () => {
+    const [wrapperSource, publicSource] = await Promise.all([
+      readFile("src/audit/mcp-handler.ts", "utf8"),
+      readFile("src/mcp/public-campus-tools.ts", "utf8"),
     ]);
 
-    expect(routeSource).not.toContain("registerPublicCampusTools");
-    expect(projectionSource).not.toContain("registerPublicCampusTools");
+    expect(wrapperSource).toContain('import { registerPublicCampusTools } from "@/src/mcp/public-campus-tools"');
+    expect(wrapperSource).toContain("registerPublicCampusTools(server)");
+
+    const registered = [
+      ...publicSource.matchAll(/server\.registerTool\(\s*\n?\s*["']([^"']+)["']/gu),
+    ].map((match) => match[1]);
+    expect(registered).toEqual([...EXPECTED_PUBLIC_TOOLS]);
+    expect(new Set(registered).size).toBe(EXPECTED_PUBLIC_TOOLS.length);
+  });
+
+  it("keeps public campus tools free of the private OAuth metadata marker", async () => {
+    const source = await readFile("src/mcp/public-campus-tools.ts", "utf8");
+    expect(source).not.toContain("OPENAI_TOOL_META");
+    expect(source).not.toContain("securitySchemes");
+  });
+
+  it("locks the complete live surface to 17 unique tools", () => {
+    const all = [...EXPECTED_PUBLIC_TOOLS, ...EXPECTED_PRIVATE_TOOLS];
+    expect(all).toHaveLength(17);
+    expect(new Set(all).size).toBe(17);
   });
 });
