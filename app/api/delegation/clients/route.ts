@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { apiError, browserCaller, jsonResponse, optionsResponse, readJson } from "@/src/http/api";
 import { recordAiAccessEvent } from "@/src/db/ai-access-events";
+import { sendAiLifecycleNotice } from "@/src/email/lifecycle";
 import {
   RestRequestError,
   deleteAllApprovedOAuthClients,
@@ -17,6 +18,10 @@ const ApprovalSchema = z
 
 function reportAuditFailure(error: unknown) {
   console.error("ai_access_audit_failed", error instanceof Error ? error.message : "unknown");
+}
+
+function reportNoticeFailure(error: unknown) {
+  console.error("ai_access_notice_failed", error instanceof Error ? error.message : "unknown");
 }
 
 export function OPTIONS(request: Request) {
@@ -56,9 +61,14 @@ export async function POST(request: Request) {
       if (!(error instanceof RestRequestError) || error.status !== 409) throw error;
     }
     if (inserted) {
-      await recordAiAccessEvent(auth.caller, "authorized", { clientName: parsed.data.clientName }).catch(
-        reportAuditFailure,
-      );
+      await Promise.all([
+        recordAiAccessEvent(auth.caller, "authorized", { clientName: parsed.data.clientName }).catch(
+          reportAuditFailure,
+        ),
+        sendAiLifecycleNotice(auth.caller, "ai_authorized", parsed.data.clientName).catch(
+          reportNoticeFailure,
+        ),
+      ]);
     }
     return jsonResponse(request, { approved: true, clientId: parsed.data.clientId });
   } catch (error) {
@@ -73,11 +83,14 @@ export async function DELETE(request: Request) {
     const clients = await listApprovedOAuthClients(auth.caller);
     await deleteAllApprovedOAuthClients(auth.caller);
     await Promise.all(
-      clients.map((client) =>
+      clients.flatMap((client) => [
         recordAiAccessEvent(auth.caller, "revoked", { clientName: client.client_name }).catch(
           reportAuditFailure,
         ),
-      ),
+        sendAiLifecycleNotice(auth.caller, "ai_revoked", client.client_name).catch(
+          reportNoticeFailure,
+        ),
+      ]),
     );
     return jsonResponse(request, {
       revoked: true,
