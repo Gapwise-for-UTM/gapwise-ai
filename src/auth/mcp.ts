@@ -45,15 +45,16 @@ export function projectedToolAnnotations(annotations: unknown): unknown {
   }
 
   const value = annotations as Record<string, unknown>;
-  if (value["readOnlyHint"] === false) {
-    // Directory clients use destructiveHint as the conservative user-approval
-    // boundary for tools that modify private state. Gapwise write tools are
-    // queued/revision-safe, but they still modify data and should always be
-    // surfaced as such to the client.
-    return { ...value, destructiveHint: true };
-  }
+  if (typeof value["destructiveHint"] === "boolean") return value;
 
-  return value;
+  // Directory scanners should never have to infer the destructive property.
+  // Read-only tools are explicitly non-destructive. Mutating tools in the live
+  // Gapwise surface already declare their exact semantics at registration:
+  // create/update/preference writes are false; deletion is true. If a future
+  // write omits the annotation, defaulting false avoids incorrectly presenting
+  // an ordinary state change as destructive while CI/review can flag the
+  // missing explicit registration annotation.
+  return { ...value, destructiveHint: false };
 }
 
 function quoteChallenge(value: string): string {
@@ -113,21 +114,21 @@ function schemaToJsonSchema(schema: unknown): Record<string, unknown> {
 }
 
 /**
- * Project the pinned SDK's private tool registry into a conservative tools/list
- * contract for directory clients. This function must never register additional
- * tools: the live surface is defined only by the explicit private registrations
- * in `app/api/mcp/route.ts`. Dormant public-campus definitions remain unregistered
- * until a separate reviewed product/security decision deliberately exposes them.
+ * Project the pinned SDK's registered tool registry into a conservative
+ * `tools/list` contract for directory clients. Tool registration happens
+ * elsewhere: the shared handler wrapper registers the stateless public-campus
+ * tools and `app/api/mcp/route.ts` registers the OAuth-protected private tools.
  *
- * The compatibility projection keeps modification tools marked destructive for
- * approval purposes and narrows a small set of older descriptions to factual
- * capability text rather than model-behavior instructions.
+ * Public tools intentionally have no OAuth `securitySchemes`; private tools
+ * carry `OPENAI_TOOL_META`, which this adapter mirrors to the root field for
+ * clients that need it. The projection preserves exact destructive semantics,
+ * makes omitted non-destructive annotations explicit, and narrows selected
+ * descriptions to factual capability text rather than model-behavior instructions.
  *
  * ChatGPT currently requires root-level `securitySchemes` in tools/list while
  * the pinned MCP SDK v2 only serializes custom auth declarations via `_meta`.
- * This small compatibility adapter mirrors only that field and keeps the SDK's
- * private registry usage isolated in one tested place. Remove the security-
- * scheme part when the SDK gains first-class root-level serialization.
+ * Remove that compatibility mirror when the SDK gains first-class root-level
+ * serialization, while preserving the public/private per-tool auth boundary.
  */
 export function installToolSecuritySchemeProjection(server: unknown): void {
   const privateServer = server as McpServerPrivate;

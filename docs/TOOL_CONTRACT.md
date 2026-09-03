@@ -1,10 +1,28 @@
 # MCP tool contract
 
-The live `app/api/mcp/route.ts` handler currently registers 13 permissioned tools. Tool discovery is provider-neutral, but private calls require a verified OAuth caller and the relevant non-revoked Gapwise AI delegation permissions.
+The live Gapwise AI MCP service registers **17 tools** through one Streamable HTTP endpoint: four stateless public UTM campus-intelligence tools and 13 OAuth-protected permissioned student-context tools.
 
 Tool handlers never accept arbitrary SQL, JavaScript, URLs, graph nodes, or generic execute instructions. Imported/source-backed academic meetings remain read-only.
 
-## Read, status, and planning tools
+## Public campus tools
+
+These tools use public deterministic Gapwise campus data. They do not authenticate a Gapwise account and do not read a student's private timetable, friends, precise location, or private sync state.
+
+### `list_utm_buildings`
+Lists canonical UTM buildings with Gapwise routing/accessibility coverage and provenance.
+
+### `get_utm_building`
+Resolves one canonical UTM building by code, official name, or known alias. Unknown or ambiguous values fail closed.
+
+### `route_between_utm_buildings`
+Runs Gapwise's deterministic building-to-building routing engine and preserves route status, verification, time/distance, accessibility state, confidence, and warnings rather than upgrading uncertainty in model prose.
+
+### `plan_utm_gap_window`
+Runs Gapwise's deterministic gap-assessment engine for one explicit free window between two UTM buildings using explicitly supplied routing/gap preferences. It does not discover a user's free time or private schedule.
+
+## Private read, status, and planning tools
+
+These tools require a verified OAuth caller and the relevant non-revoked Gapwise AI delegation permission.
 
 ### `get_ai_delegation_status`
 Returns delegation state, revision, and permissions without returning timetable content.
@@ -33,7 +51,7 @@ Searches all seven weekdays for usable planning windows. When an interval is cov
 ### `check_my_plan_feasibility`
 Checks a proposed personal block against delegated hard conflicts and, when applicable, the authoritative activity envelope/transition state for a delegated Gapwise gap. Arbitrary proposed locations are echoed but are not route-validated by this tool.
 
-## Write tools
+## Private write tools
 
 ### `create_personal_item`
 Queues a new personal timetable item. Requires explicit personal-item write delegation and the current `expectedRevision`.
@@ -49,16 +67,9 @@ Queues a bounded partial update to delegated gap-planning preferences. Requires 
 
 Fixed personal-item creates/updates are independently revalidated at the service layer against delegated hard conflicts and known deterministic Gapwise transition/activity-envelope constraints before they are queued.
 
-## Public campus tool definitions
+## Authentication projection
 
-`src/mcp/public-campus-tools.ts` defines four stateless public-campus tool registrations backed by Gapwise's deterministic campus API:
-
-- `list_utm_buildings`
-- `get_utm_building`
-- `route_between_utm_buildings`
-- `plan_utm_gap_window`
-
-Those definitions are **not currently registered by `app/api/mcp/route.ts`** and therefore are not part of the live tool count. Wiring them into the production handler is a runtime change that should receive its own compatibility/security validation.
+Public tools intentionally carry no OAuth `securitySchemes`. Private tools advertise Gapwise OAuth metadata in `_meta`, and the compatibility projection mirrors that declaration to root-level `securitySchemes` for clients that require it. Tool execution still independently verifies the caller; metadata is not authorization.
 
 ## Mutation semantics
 

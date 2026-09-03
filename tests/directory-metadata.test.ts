@@ -2,11 +2,25 @@ import { describe, expect, it } from "vitest";
 import { projectedToolAnnotations, projectedToolDescription } from "@/src/auth/mcp";
 
 describe("directory-facing MCP metadata", () => {
-  it("marks every state-modifying tool as destructive for client approval", () => {
+  it("preserves non-destructive mutation semantics while making destructive intent explicit", () => {
     expect(
       projectedToolAnnotations({
         readOnlyHint: false,
         destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      }),
+    ).toEqual({
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    });
+
+    expect(
+      projectedToolAnnotations({
+        readOnlyHint: false,
+        destructiveHint: true,
         idempotentHint: true,
         openWorldHint: false,
       }),
@@ -18,9 +32,12 @@ describe("directory-facing MCP metadata", () => {
     });
   });
 
-  it("leaves read-only annotations unchanged", () => {
-    const annotations = { readOnlyHint: true, openWorldHint: false };
-    expect(projectedToolAnnotations(annotations)).toEqual(annotations);
+  it("makes read-only non-destructive intent explicit", () => {
+    expect(projectedToolAnnotations({ readOnlyHint: true, openWorldHint: false })).toEqual({
+      readOnlyHint: true,
+      openWorldHint: false,
+      destructiveHint: false,
+    });
   });
 
   it("projects narrow capability descriptions instead of behavioral instructions", () => {
