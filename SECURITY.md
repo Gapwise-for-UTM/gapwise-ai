@@ -32,8 +32,12 @@ Security fixes target the current `main` branch and the production deployment de
 - Private reads and writes require a valid user-scoped Supabase access token.
 - MCP access additionally requires an OAuth client identity; OAuth-client tokens may not use browser-authoritative mutation endpoints.
 - Database rows remain caller-scoped with RLS; private AI payloads are encrypted before database storage with a separate server-only data key.
+- The application independently rejects any AI delegation, pending-action, or approved-client row whose `user_id` does not exactly match the cryptographically verified caller, so an upstream/RLS regression fails closed instead of silently becoming a cross-account read.
+- Delegation/action inserts are likewise rejected if application code attempts to write a different owner ID than the authenticated caller.
 - Writes remain typed, revision-bound, and idempotency-bounded; stale writes fail closed.
 - Revocation must remove delegated state/actions and make subsequent private reads/writes fail closed.
+
+These application ownership checks are defense in depth. They do not replace Supabase RLS, OAuth client approval, MCP audience binding, token validation, or encryption user binding; all of those controls are expected to agree on the same caller.
 
 ## Secrets
 
@@ -43,6 +47,6 @@ The Supabase publishable key is designed for client-side use and is not treated 
 
 ## Public-source posture
 
-Gapwise AI is designed so that publishing the source code does not weaken its security model. Authentication, authorization, RLS, cryptographic key separation, and fail-closed validation are the security controls; repository secrecy is not.
+Gapwise AI is designed so that publishing the source code does not weaken its security model. Authentication, authorization, RLS, cryptographic key separation, application ownership assertions, and fail-closed validation are the security controls; repository secrecy is not.
 
-The repository should nevertheless remain private until the release checklist's real-client OAuth and revocation tests have passed, so a public release represents a validated security contract rather than an unfinished integration.
+The source repository is public, but broad named-client compatibility remains separately evidence-gated. ChatGPT, Claude, or another client should not be described as fully verified until the release checklist's real-client OAuth/read/write/revocation and negative-path matrices have passed on the final release state.
