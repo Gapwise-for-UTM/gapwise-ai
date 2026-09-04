@@ -1,6 +1,6 @@
 # Gapwise ecosystem integration
 
-`gapwise-ai` is the OAuth/MCP trust boundary of the six-repository Gapwise ecosystem. It exposes explicitly delegated, minimized student context and bounded actions to compatible AI clients. It does not replace deterministic Gapwise product logic, the public campus API, or the public SDKs.
+`gapwise-ai` is the OAuth/MCP trust boundary of the six-repository Gapwise ecosystem. It exposes stateless public campus intelligence plus explicitly delegated, minimized student context and bounded actions to compatible AI clients. It does not replace deterministic Gapwise product logic, the public campus API, or the public SDKs.
 
 ## Connected surfaces
 
@@ -17,7 +17,7 @@
 
 Public campus developers use equal first-party SDKs owned by the core repository:
 
-- TypeScript `@gapwise/sdk`: version `0.1.0` is published on both npm and JSR through provenance-backed GitHub Actions publishing. Node, Bun, and Deno are runtime targets for one portable TypeScript implementation, not separate SDKs.
+- TypeScript `@gapwise/sdk`: version `0.1.1` is published on both npm and JSR through provenance-backed GitHub Actions publishing. Node, Bun, and Deno are runtime targets for one portable TypeScript implementation, not separate SDKs.
 - Python `gapwise==0.1.0`: published on PyPI through Trusted Publishing.
 
 These SDKs intentionally expose public campus intelligence only. They do not grant access to private student schedules, delegation state, queued actions, or AI authorization.
