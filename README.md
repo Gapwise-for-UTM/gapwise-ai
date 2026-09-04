@@ -147,7 +147,8 @@ Gapwise AI does **not** require an OpenAI or Anthropic API key for normal connec
 Applications that need conventional non-MCP UTM campus intelligence can use the canonical public API or first-party SDKs:
 
 ```bash
-npm install @gapwise/sdk@0.1.0
+npm install @gapwise/sdk@0.1.1
+# JSR: @gapwise/sdk@0.1.1
 python -m pip install gapwise==0.1.0
 ```
 
@@ -155,7 +156,7 @@ python -m pip install gapwise==0.1.0
 - OpenAPI: `https://api.gapwise.ca/openapi.json`
 - Docs: `https://docs.gapwise.ca`
 
-The public API/SDK surface does not grant access to delegated private AI context.
+The JavaScript/TypeScript SDK is published on npm and JSR; the Python SDK is published on PyPI. The public API/SDK surface does not grant access to delegated private AI context.
 
 ---
 
