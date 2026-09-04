@@ -33,6 +33,6 @@ jobs:
       - name: Unit tests
         run: npm test
       - name: Production dependency audit
-        run: npm audit --omit=dev --audit-level=high
+        run: npm run audit:production
       - name: Production build
         run: npm run build
