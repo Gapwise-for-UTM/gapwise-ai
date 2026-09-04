@@ -25,6 +25,7 @@
     "test": "vitest run",
     "scan:secrets": "node scripts/scan-secrets.mjs",
     "check:cost-model": "node scripts/check-cost-model.mjs",
+    "audit:production": "node scripts/audit-production-dependencies.mjs",
     "check": "npm run scan:secrets && npm run check:cost-model && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
