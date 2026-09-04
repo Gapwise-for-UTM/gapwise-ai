@@ -24,7 +24,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "scan:secrets": "node scripts/scan-secrets.mjs",
-    "check": "npm run scan:secrets && npm run typecheck && npm test && npm run build"
+    "check:cost-model": "node scripts/check-cost-model.mjs",
+    "check": "npm run scan:secrets && npm run check:cost-model && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.0.0",
