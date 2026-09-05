@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /.well-known/
+
+Sitemap: https://ai.gapwise.ca/sitemap.xml
