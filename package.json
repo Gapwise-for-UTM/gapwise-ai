@@ -8,10 +8,10 @@
   "homepage": "https://gapwise.ca",
   "repository": {
     "type": "git",
-    "url": "https://github.com/andrewmuratov/gapwise-ai.git"
+    "url": "https://github.com/Gapwise-for-UTM/gapwise-ai.git"
   },
   "bugs": {
-    "url": "https://github.com/andrewmuratov/gapwise-ai/issues"
+    "url": "https://github.com/Gapwise-for-UTM/gapwise-ai/issues"
   },
   "type": "module",
   "engines": {
