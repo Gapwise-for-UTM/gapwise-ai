@@ -6,7 +6,7 @@ Gapwise AI handles explicitly delegated private timetable data and authenticated
 
 **Do not open a public GitHub issue for a suspected security vulnerability.**
 
-When this repository is public, use GitHub's private security reporting / Security Advisory flow when available. If private reporting is not available, contact the repository owner privately through GitHub and include only the minimum information needed to establish contact; sensitive proof-of-concept details should remain in a private channel.
+Prefer `security@gapwise.ca` or GitHub private vulnerability reporting for the organization-owned repository at `https://github.com/Gapwise-for-UTM/gapwise-ai/security/advisories/new`. Include only the minimum information needed to establish contact until a private channel is confirmed.
 
 A useful report includes:
 
