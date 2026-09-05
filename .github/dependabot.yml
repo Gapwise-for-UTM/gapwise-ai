@@ -4,6 +4,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: "America/Toronto"
     open-pull-requests-limit: 5
     groups:
       production-minor-patch:
@@ -23,6 +26,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+      day: monday
+      time: "09:15"
+      timezone: "America/Toronto"
     open-pull-requests-limit: 3
     groups:
       actions-minor-patch:
