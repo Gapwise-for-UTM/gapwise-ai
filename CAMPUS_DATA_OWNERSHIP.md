@@ -1,6 +1,6 @@
 # Campus data ownership
 
-Canonical public UTM campus facts and geometry live in `andrewmuratov/gapwise-data` under `data/utm`.
+Canonical public UTM campus facts and geometry live in `Gapwise-for-UTM/gapwise-data` under `data/utm`.
 
 `gapwise` consumes a validated build-time snapshot of that dataset and remains responsible for deterministic routing, gap planning, public API behavior, and SDK contracts. `gapwise-ai` should continue exposing those deterministic Gapwise semantics through MCP rather than becoming a second campus-data or routing engine.
 
@@ -12,4 +12,4 @@ Canonical public UTM campus facts and geometry live in `andrewmuratov/gapwise-da
 - Do not make MCP availability depend on a runtime fetch from `data.gapwise.ca` or GitHub.
 - Campus fact/evidence changes start in `gapwise-data`; calculation/API changes start in `gapwise`; MCP schema/permission changes start here.
 
-The machine-readable ecosystem contract in `gapwise.ecosystem.json` records the same ownership boundary.
+The machine-readable ecosystem contract in `gapwise.ecosystem.json` records the same ownership boundary and canonical GitHub organization.
