@@ -50,12 +50,26 @@ function currentPermissions(permissions: AiPermissions): AiPermissions {
  * Convert schema-v1 delegated data into the current product semantics.
  * Personal Items were retired in Gapwise; legacy encrypted fields remain parseable only so old
  * snapshots can migrate without breaking access to the student's academic timetable.
+ *
+ * Legacy gap plans can also contain boundaries that were Personal Items or are now classified as
+ * reserved assessment placeholders. Those plans must disappear with their retired/non-commitment
+ * boundaries instead of surviving as apparently authoritative current Gapwise opportunities.
  */
 function currentSnapshot(snapshot: AiSnapshot): AiSnapshot {
+  const academicBoundaryIds = new Set(
+    snapshot.schedule
+      .filter((meeting) => !meeting.isReservedAssessmentWindow)
+      .map((meeting) => meeting.id),
+  );
   return {
     ...snapshot,
     permissions: currentPermissions(snapshot.permissions),
     personalItems: [],
+    gapPlans: snapshot.gapPlans.filter(
+      (plan) =>
+        academicBoundaryIds.has(plan.previousMeetingId) &&
+        academicBoundaryIds.has(plan.nextMeetingId),
+    ),
   };
 }
 
