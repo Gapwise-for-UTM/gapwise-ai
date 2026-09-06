@@ -12,8 +12,9 @@ type ScheduleRange = z.infer<typeof ScheduleRangeOutputSchema>;
 type Meeting = ScheduleSearch["results"][number]["meeting"];
 
 function clock(minutes: number): string {
-  const hour = Math.floor(minutes / 60);
-  const minute = minutes % 60;
+  const normalized = ((minutes % 1440) + 1440) % 1440;
+  const hour = Math.floor(normalized / 60);
+  const minute = normalized % 60;
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
