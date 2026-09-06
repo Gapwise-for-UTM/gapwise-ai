@@ -522,6 +522,9 @@ export function decisionContext(snapshot: AiSnapshot, term: Term) {
       reservedAssessmentWindowCount: week.reservedAssessmentWindows.length,
       fixedPersonalCount: week.personalItems.filter(isFixedPersonal).length,
     },
+    reservedAssessmentWindows: week.meetingFacts.filter(
+      (meeting) => meeting.semanticType === "reserved_assessment_window",
+    ),
     days,
     topGapOpportunities: opportunities,
     gapPlanGroups: week.gapPlanGroups,
