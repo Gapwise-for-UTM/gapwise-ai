@@ -20,6 +20,7 @@ const meeting = {
   room: "1210",
   term: "Fall" as const,
   locationUnknown: false,
+  isReservedAssessmentWindow: false,
   locationType: "physical" as const,
   dateRange: { startDate: "2026-09-07", endDate: "2026-12-07" },
   excludedDates: ["2026-10-12"],
