@@ -86,8 +86,9 @@ export async function DELETE(request: Request) {
     const auth = await browserCaller(request);
     if ("response" in auth) return auth.response;
     const clients = await listApprovedOAuthClients(auth.caller);
-    const requestedClientId = new URL(request.url).searchParams.get("clientId")?.trim() ?? "";
-    if (requestedClientId.length > 512) {
+    const clientIdParam = new URL(request.url).searchParams.get("clientId");
+    const requestedClientId = clientIdParam?.trim() ?? null;
+    if (clientIdParam !== null && (!requestedClientId || requestedClientId.length > 512)) {
       return jsonResponse(request, { error: "invalid_data" }, 400);
     }
     const revokedClients = requestedClientId
