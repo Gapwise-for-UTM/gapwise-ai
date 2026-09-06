@@ -116,7 +116,7 @@ export function daySchedule(snapshot: AiSnapshot, date: string) {
     meetingFacts: meetings.map(meetingFact),
     personalItems,
     gapPlans,
-    gapPlanGroups: groupGapPlans(gapPlans),
+    gapPlanGroups: groupGapPlans(gapPlans, meetings),
   };
 }
 
@@ -163,7 +163,7 @@ export function weekSchedule(snapshot: AiSnapshot, term: "Fall" | "Winter" | "Su
     meetingFacts: meetings.map(meetingFact),
     personalItems,
     gapPlans,
-    gapPlanGroups: groupGapPlans(gapPlans),
+    gapPlanGroups: groupGapPlans(gapPlans, meetings),
   };
 }
 
