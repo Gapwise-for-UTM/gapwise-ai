@@ -5,6 +5,7 @@ import { sendAiLifecycleNotice } from "@/src/email/lifecycle";
 import {
   RestRequestError,
   deleteAllApprovedOAuthClients,
+  deleteApprovedOAuthClient,
   insertApprovedOAuthClient,
   listApprovedOAuthClients,
 } from "@/src/db/supabase-rest";
@@ -70,7 +71,11 @@ export async function POST(request: Request) {
         ),
       ]);
     }
-    return jsonResponse(request, { approved: true, clientId: parsed.data.clientId });
+    return jsonResponse(request, {
+      approved: true,
+      clientId: parsed.data.clientId,
+      created: inserted,
+    });
   } catch (error) {
     return apiError(request, error);
   }
@@ -81,9 +86,19 @@ export async function DELETE(request: Request) {
     const auth = await browserCaller(request);
     if ("response" in auth) return auth.response;
     const clients = await listApprovedOAuthClients(auth.caller);
-    await deleteAllApprovedOAuthClients(auth.caller);
+    const requestedClientId = new URL(request.url).searchParams.get("clientId")?.trim() ?? "";
+    const revokedClients = requestedClientId
+      ? clients.filter((client) => client.client_id === requestedClientId)
+      : clients;
+
+    if (requestedClientId) {
+      await deleteApprovedOAuthClient(auth.caller, requestedClientId);
+    } else {
+      await deleteAllApprovedOAuthClients(auth.caller);
+    }
+
     await Promise.all(
-      clients.flatMap((client) => [
+      revokedClients.flatMap((client) => [
         recordAiAccessEvent(auth.caller, "revoked", { clientName: client.client_name }).catch(
           reportAuditFailure,
         ),
@@ -94,7 +109,7 @@ export async function DELETE(request: Request) {
     );
     return jsonResponse(request, {
       revoked: true,
-      clientIds: clients.map((client) => client.client_id),
+      clientIds: revokedClients.map((client) => client.client_id),
     });
   } catch (error) {
     return apiError(request, error);
