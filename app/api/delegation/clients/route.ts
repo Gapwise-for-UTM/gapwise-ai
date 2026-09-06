@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { apiError, browserCaller, jsonResponse, optionsResponse, readJson } from "@/src/http/api";
 import { recordAiAccessEvent } from "@/src/db/ai-access-events";
+import { deleteApprovedOAuthClient } from "@/src/db/oauth-client-rollback";
 import { sendAiLifecycleNotice } from "@/src/email/lifecycle";
 import {
   RestRequestError,
   deleteAllApprovedOAuthClients,
-  deleteApprovedOAuthClient,
   insertApprovedOAuthClient,
   listApprovedOAuthClients,
 } from "@/src/db/supabase-rest";
@@ -87,6 +87,9 @@ export async function DELETE(request: Request) {
     if ("response" in auth) return auth.response;
     const clients = await listApprovedOAuthClients(auth.caller);
     const requestedClientId = new URL(request.url).searchParams.get("clientId")?.trim() ?? "";
+    if (requestedClientId.length > 512) {
+      return jsonResponse(request, { error: "invalid_data" }, 400);
+    }
     const revokedClients = requestedClientId
       ? clients.filter((client) => client.client_id === requestedClientId)
       : clients;
