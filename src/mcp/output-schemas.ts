@@ -283,6 +283,7 @@ export const DecisionContextOutputSchema = z
         fixedPersonalCount: z.number().int().min(0).max(200),
       })
       .strict(),
+    reservedAssessmentWindows: z.array(MeetingFactSchema).max(100),
     days: z.array(DecisionDaySchema).length(7),
     topGapOpportunities: z.array(GapPlanSchema).max(8),
     gapPlanGroups: z.array(GapPlanGroupSchema).max(200),
