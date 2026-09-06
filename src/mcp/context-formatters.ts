@@ -68,7 +68,7 @@ export function formatCourseContext(value: CourseContext): string {
     lines.push("Data flags:", ...value.flags.map((flag) => `- ${flag.message}`));
   }
   if (value.notes.length) lines.push(...value.notes.map((note) => `Note: ${note}`));
-  lines.push("Exact anomaly evidence and source-backed meeting fields are in structuredContent.");
+  lines.push("Flat meetingFacts plus exact anomaly evidence are in structuredContent.");
   return withMcpDataBoundary(lines.join("\n"));
 }
 
@@ -84,14 +84,18 @@ export function formatScheduleRange(value: ScheduleRange): string {
     if (day.reservedAssessmentWindows.length) {
       lines.push(...day.reservedAssessmentWindows.map((meeting) => `- ${meetingLine(meeting)}`));
     }
-    if (day.gapPlans.length) {
+  }
+  if (value.gapPlanGroups.length) {
+    lines.push("\nDistinct gap plans:");
+    for (const plan of value.gapPlanGroups) {
+      const dates = plan.appliesToDates.join(", ");
+      const leaveBy = clock(plan.leaveByMinutes);
+      const warning = plan.keyWarning ? ` · warning: ${plan.keyWarning}` : "";
       lines.push(
-        `Gap plans: ${day.gapPlans
-          .map((plan) => `${clock(plan.startTime)}–${clock(plan.endTime)} (${plan.assessment.primary.activityMinutes}m usable)`)
-          .join("; ")}.`,
+        `- ${dates} · ${clock(plan.startTime)}–${clock(plan.endTime)} · ${plan.primaryTitle} · ${plan.usableActivityMinutes}m usable · leave ${leaveBy} · ${plan.confidencePercent}%${warning}`,
       );
     }
   }
-  lines.push("Exact recurrence, exclusions, and gap-plan evidence are in structuredContent.");
+  lines.push("Flat meetingFacts, grouped gap plans, recurrence, and exclusions are in structuredContent.");
   return withMcpDataBoundary(lines.join("\n"));
 }
