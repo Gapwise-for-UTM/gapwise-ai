@@ -15,7 +15,15 @@ type GapPlan = AiSnapshot["gapPlans"][number];
 type GapRecommendation = GapPlan["assessment"]["primary"];
 type FixedPersonalItem = Extract<PersonalItem, { flexibility: { kind: "fixed" } }>;
 
-const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] as const;
+const WEEKDAYS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+] as const;
 
 function clock(minutes: number): string {
   const normalized = ((minutes % 1440) + 1440) % 1440;
@@ -29,6 +37,7 @@ function isFixedPersonal(item: PersonalItem): item is FixedPersonalItem {
 }
 
 function locationForMeeting(meeting: Meeting): string {
+  if (meeting.isReservedAssessmentWindow) return "location announced only if this window is used";
   if (meeting.locationType === "online") return "Online";
   if (meeting.locationType === "tba") return "TBA";
   const parts = [meeting.buildingCode, meeting.room].filter(Boolean);
@@ -61,6 +70,9 @@ function meetingLine(meeting: Meeting): string {
     meeting.courseName && meeting.courseName !== meeting.courseCode
       ? ` — ${meeting.courseName}`
       : "";
+  if (meeting.isReservedAssessmentWindow) {
+    return `- ${clock(meeting.startTime)}–${clock(meeting.endTime)} ${meeting.courseCode} RES ${meeting.sectionCode}${name} — Reserved assessment window; NOT a weekly class; only active when announced; ${locationForMeeting(meeting)}${recurrenceForMeeting(meeting)}`;
+  }
   return `- ${clock(meeting.startTime)}–${clock(meeting.endTime)} ${meeting.courseCode} ${meeting.sectionCode} (${meeting.activityType})${name} — ${locationForMeeting(meeting)}${recurrenceForMeeting(meeting)}`;
 }
 
@@ -128,17 +140,25 @@ function compactJson(label: string, value: unknown): string {
 }
 
 export function formatDaySchedule(value: DaySchedule): string {
+  const academic = value.meetings.filter((meeting) => !meeting.isReservedAssessmentWindow);
+  const reserved = value.meetings.filter((meeting) => meeting.isReservedAssessmentWindow);
   const lines = [
     `Gapwise day for ${value.date}${value.weekday ? ` (${value.weekday})` : ""} — ${value.term}, revision ${value.revision}.`,
+    "Academic commitments:",
+    ...(academic.length ? academic.map(meetingLine) : ["- None."]),
   ];
-  lines.push("Academic meetings:");
-  lines.push(...(value.meetings.length ? value.meetings.map(meetingLine) : ["- None."]));
-  lines.push("Delegated personal items:");
-  lines.push(
-    ...(value.personalItems.length
-      ? value.personalItems.map(personalItemLine)
-      : ["- None shared for this day."]),
-  );
+  if (reserved.length) {
+    lines.push(
+      "Reserved assessment placeholders (informational only; they do not block availability until an assessment is announced):",
+      ...reserved.map(meetingLine),
+    );
+  }
+  if (value.personalItems.length) {
+    lines.push(
+      "Legacy delegated Personal Items (retired in current Gapwise):",
+      ...value.personalItems.map(personalItemLine),
+    );
+  }
   lines.push("Gapwise gap plans:");
   if (value.gapPlans.length) {
     for (const plan of value.gapPlans) lines.push(...gapPlanLines(plan));
@@ -150,19 +170,24 @@ export function formatDaySchedule(value: DaySchedule): string {
 
 export function formatWeekSchedule(value: WeekSchedule): string {
   const lines = [
-    `Gapwise ${value.term} timetable — revision ${value.revision}. Recurrence/date-range facts and exclusions are included per academic meeting when source-backed data provides them.`,
+    `Gapwise ${value.term} timetable — revision ${value.revision}. Recurrence/date-range facts and exclusions are included per source-backed entry. RES means a reserved assessment placeholder, not a weekly class or hard commitment.`,
   ];
   for (const weekday of WEEKDAYS) {
     const meetings = value.meetings.filter((meeting) => meeting.weekday === weekday);
+    const academic = meetings.filter((meeting) => !meeting.isReservedAssessmentWindow);
+    const reserved = meetings.filter((meeting) => meeting.isReservedAssessmentWindow);
     const personal = value.personalItems.filter((item) => item.weekday === weekday);
     const gaps = value.gapPlans.filter((plan) => plan.weekday === weekday);
     if (!meetings.length && !personal.length && !gaps.length) continue;
     lines.push(`\n${weekday}`);
-    if (meetings.length) {
-      lines.push("Academic meetings:", ...meetings.map(meetingLine));
+    if (academic.length) {
+      lines.push("Academic commitments:", ...academic.map(meetingLine));
+    }
+    if (reserved.length) {
+      lines.push("Reserved assessment placeholders:", ...reserved.map(meetingLine));
     }
     if (personal.length) {
-      lines.push("Delegated personal items:", ...personal.map(personalItemLine));
+      lines.push("Legacy delegated Personal Items:", ...personal.map(personalItemLine));
     }
     if (gaps.length) {
       lines.push("Gapwise gap plans:");
