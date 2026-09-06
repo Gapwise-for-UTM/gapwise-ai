@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { ScheduleDataFlagSchema } from "@/src/domain/assistant-schemas";
+import { meetingSemantics, scheduleDataFlags } from "@/src/domain/assistant-data";
 import {
   ActivityTypeSchema,
   GapPlanSchema,
@@ -60,6 +62,7 @@ export const CourseContextOutputSchema = z
     academicMeetings: z.array(MeetingSchema).max(100),
     reservedAssessmentWindows: z.array(MeetingSchema).max(100),
     alternatives: z.array(CourseAlternativeSchema).max(8),
+    flags: z.array(ScheduleDataFlagSchema).max(40),
     notes: z.array(z.string().min(1).max(1000)).max(12),
   })
   .strict();
@@ -171,11 +174,7 @@ export function searchSchedule(
       return {
         score,
         matchReasons: reasons,
-        semanticType: meeting.isReservedAssessmentWindow
-          ? ("reserved_assessment_window" as const)
-          : ("academic_meeting" as const),
-        componentLabel: meeting.isReservedAssessmentWindow ? "RES" : meeting.activityType,
-        isHardCommitment: !meeting.isReservedAssessmentWindow,
+        ...meetingSemantics(meeting),
         meeting,
       };
     })
@@ -229,6 +228,7 @@ export function getCourseContext(snapshot: AiSnapshot, query: string, term?: Ter
       academicMeetings: [],
       reservedAssessmentWindows: [],
       alternatives: [],
+      flags: [],
       notes: ["No delegated academic course matched this query. Do not infer a course that is absent."],
     };
   }
@@ -247,6 +247,7 @@ export function getCourseContext(snapshot: AiSnapshot, query: string, term?: Ter
       academicMeetings: [],
       reservedAssessmentWindows: [],
       alternatives,
+      flags: [],
       notes: ["Multiple delegated courses match equally well. Use search_my_schedule or a course code to disambiguate."],
     };
   }
@@ -257,6 +258,7 @@ export function getCourseContext(snapshot: AiSnapshot, query: string, term?: Ter
     .sort(sortMeetings);
   const academicMeetings = meetings.filter((meeting) => !meeting.isReservedAssessmentWindow);
   const reservedAssessmentWindows = meetings.filter((meeting) => meeting.isReservedAssessmentWindow);
+  const flags = scheduleDataFlags(academicMeetings);
   const notes: string[] = [];
   if (reservedAssessmentWindows.length) {
     notes.push(
@@ -279,6 +281,7 @@ export function getCourseContext(snapshot: AiSnapshot, query: string, term?: Ter
     academicMeetings,
     reservedAssessmentWindows,
     alternatives,
+    flags,
     notes,
   };
 }
@@ -300,8 +303,8 @@ export function getScheduleRange(snapshot: AiSnapshot, startDate: string, days: 
       date,
       weekday: day.weekday,
       term: day.term,
-      academicMeetings: day.meetings.filter((meeting) => !meeting.isReservedAssessmentWindow),
-      reservedAssessmentWindows: day.meetings.filter((meeting) => meeting.isReservedAssessmentWindow),
+      academicMeetings: day.academicMeetings,
+      reservedAssessmentWindows: day.reservedAssessmentWindows,
       gapPlans: day.gapPlans,
     };
   });
