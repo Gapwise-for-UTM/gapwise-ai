@@ -313,8 +313,27 @@ function gapPlanDetails(plan: GapPlan, meetingsById: Map<string, Meeting>) {
   };
 }
 
+function recommendationIdentity(recommendation: GapPlan["assessment"]["primary"]) {
+  return {
+    action: recommendation.action,
+    title: recommendation.title,
+    summary: recommendation.summary,
+    score: recommendation.score,
+    activityMinutes: recommendation.activityMinutes,
+    reasons: recommendation.reasons,
+    tags: recommendation.tags,
+    timeline: recommendation.timeline,
+  };
+}
+
 function gapGroupKey(plan: GapPlan, meetingsById: Map<string, Meeting>): string {
-  return JSON.stringify(gapPlanDetails(plan, meetingsById));
+  const assessment = plan.assessment;
+  return JSON.stringify({
+    assistantSummary: gapPlanDetails(plan, meetingsById),
+    primary: recommendationIdentity(assessment.primary),
+    alternatives: assessment.alternatives.map(recommendationIdentity),
+    warnings: assessment.warnings,
+  });
 }
 
 function gapPlanGroupFromPlan(plan: GapPlan, meetingsById: Map<string, Meeting>) {
