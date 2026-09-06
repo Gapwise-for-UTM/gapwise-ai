@@ -232,43 +232,98 @@ export function scheduleDataFlags(meetings: Meeting[]): ScheduleDataFlag[] {
   return [...new Map(flags.map((flag) => [flagKey(flag), flag])).values()].slice(0, 40);
 }
 
-function gapGroupKey(plan: GapPlan): string {
+type GapBoundarySummary = {
+  courseCode: string | null;
+  componentLabel: "LEC" | "TUT" | "PRA" | "OTHER" | "RES" | null;
+  sectionCode: string | null;
+  buildingCode: string | null;
+  room: string | null;
+  locationLabel: string | null;
+};
+
+function gapBoundarySummary(meeting: Meeting | undefined): GapBoundarySummary {
+  if (!meeting) {
+    return {
+      courseCode: null,
+      componentLabel: null,
+      sectionCode: null,
+      buildingCode: null,
+      room: null,
+      locationLabel: null,
+    };
+  }
+  return {
+    courseCode: meeting.courseCode,
+    componentLabel: meetingSemantics(meeting).componentLabel,
+    sectionCode: meeting.sectionCode,
+    buildingCode: meeting.buildingCode,
+    room: meeting.room,
+    locationLabel: locationLabel(meeting),
+  };
+}
+
+function gapPlanDetails(plan: GapPlan, meetingsById: Map<string, Meeting>) {
   const assessment = plan.assessment;
-  return JSON.stringify({
+  const previous = gapBoundarySummary(meetingsById.get(plan.previousMeetingId));
+  const next = gapBoundarySummary(meetingsById.get(plan.nextMeetingId));
+  return {
     term: plan.term,
     startTime: plan.startTime,
     endTime: plan.endTime,
     durationMinutes: plan.durationMinutes,
-    primary: {
-      action: assessment.primary.action,
-      title: assessment.primary.title,
-      score: assessment.primary.score,
-      activityMinutes: assessment.primary.activityMinutes,
-    },
+    previousCourseCode: previous.courseCode,
+    previousComponentLabel: previous.componentLabel,
+    previousSectionCode: previous.sectionCode,
+    previousBuildingCode: previous.buildingCode,
+    previousRoom: previous.room,
+    previousLocationLabel: previous.locationLabel,
+    nextCourseCode: next.courseCode,
+    nextComponentLabel: next.componentLabel,
+    nextSectionCode: next.sectionCode,
+    nextBuildingCode: next.buildingCode,
+    nextRoom: next.room,
+    nextLocationLabel: next.locationLabel,
+    primaryAction: assessment.primary.action,
+    primaryTitle: assessment.primary.title,
+    primaryScore: assessment.primary.score,
+    usableActivityMinutes: assessment.primary.activityMinutes,
     travelMinutes: assessment.travelMinutes,
     bufferMinutes: assessment.bufferMinutes,
     leaveByMinutes: assessment.leaveByMinutes,
     arrivalMinutes: assessment.arrivalMinutes,
     routeStatus: assessment.routeStatus,
     routeAccuracy: assessment.routeAccuracy,
-    confidence: assessment.confidence,
+    confidencePercent: Math.round(assessment.confidence * 100),
     confidenceLabel: assessment.confidenceLabel,
     fallback: assessment.fallback,
-    warnings: assessment.warnings,
-  });
+    keyWarning: assessment.warnings[0] ?? null,
+  };
 }
 
-export function groupGapPlans(plans: GapPlan[]) {
+function gapGroupKey(plan: GapPlan, meetingsById: Map<string, Meeting>): string {
+  return JSON.stringify(gapPlanDetails(plan, meetingsById));
+}
+
+function gapPlanGroupFromPlan(plan: GapPlan, meetingsById: Map<string, Meeting>) {
+  return {
+    appliesTo: [plan.weekday] as Weekday[],
+    sourceGapPlanIds: [plan.id],
+    ...gapPlanDetails(plan, meetingsById),
+  };
+}
+
+export function groupGapPlans(plans: GapPlan[], meetings: Meeting[] = []) {
+  const meetingsById = new Map(meetings.map((meeting) => [meeting.id, meeting]));
   const groups = new Map<string, ReturnType<typeof gapPlanGroupFromPlan>>();
   for (const plan of plans) {
-    const key = gapGroupKey(plan);
+    const key = gapGroupKey(plan, meetingsById);
     const existing = groups.get(key);
     if (existing) {
       if (!existing.appliesTo.includes(plan.weekday)) existing.appliesTo.push(plan.weekday);
       existing.sourceGapPlanIds.push(plan.id);
       continue;
     }
-    groups.set(key, gapPlanGroupFromPlan(plan));
+    groups.set(key, gapPlanGroupFromPlan(plan, meetingsById));
   }
 
   return [...groups.values()]
@@ -285,28 +340,33 @@ export function groupGapPlans(plans: GapPlan[]) {
     );
 }
 
-function gapPlanGroupFromPlan(plan: GapPlan) {
-  const assessment = plan.assessment;
-  return {
-    term: plan.term,
-    appliesTo: [plan.weekday] as Weekday[],
-    sourceGapPlanIds: [plan.id],
-    startTime: plan.startTime,
-    endTime: plan.endTime,
-    durationMinutes: plan.durationMinutes,
-    primaryAction: assessment.primary.action,
-    primaryTitle: assessment.primary.title,
-    primaryScore: assessment.primary.score,
-    usableActivityMinutes: assessment.primary.activityMinutes,
-    travelMinutes: assessment.travelMinutes,
-    bufferMinutes: assessment.bufferMinutes,
-    leaveByMinutes: assessment.leaveByMinutes,
-    arrivalMinutes: assessment.arrivalMinutes,
-    routeStatus: assessment.routeStatus,
-    routeAccuracy: assessment.routeAccuracy,
-    confidencePercent: Math.round(assessment.confidence * 100),
-    confidenceLabel: assessment.confidenceLabel,
-    fallback: assessment.fallback,
-    keyWarning: assessment.warnings[0] ?? null,
+export function groupGapPlansByDate(
+  entries: Array<{ date: string; gapPlans: GapPlan[] }>,
+  meetings: Meeting[] = [],
+) {
+  const meetingsById = new Map(meetings.map((meeting) => [meeting.id, meeting]));
+  type DateGroup = Omit<ReturnType<typeof gapPlanGroupFromPlan>, "appliesTo"> & {
+    appliesToDates: string[];
   };
+  const groups = new Map<string, DateGroup>();
+  for (const entry of entries) {
+    for (const plan of entry.gapPlans) {
+      const key = gapGroupKey(plan, meetingsById);
+      const existing = groups.get(key);
+      if (existing) {
+        if (!existing.appliesToDates.includes(entry.date)) existing.appliesToDates.push(entry.date);
+        existing.sourceGapPlanIds.push(plan.id);
+        continue;
+      }
+      const { appliesTo: _appliesTo, ...base } = gapPlanGroupFromPlan(plan, meetingsById);
+      groups.set(key, { ...base, appliesToDates: [entry.date] });
+    }
+  }
+  return [...groups.values()]
+    .map((group) => ({ ...group, appliesToDates: [...group.appliesToDates].sort() }))
+    .sort(
+      (a, b) =>
+        (a.appliesToDates[0] ?? "").localeCompare(b.appliesToDates[0] ?? "") ||
+        a.startTime - b.startTime,
+    );
 }
