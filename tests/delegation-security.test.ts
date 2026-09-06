@@ -88,6 +88,31 @@ function delegationRow(value: AiSnapshot, encryptedForUserId = caller.userId) {
   };
 }
 
+const legacyAssessment = {
+  primary: {
+    id: "study",
+    action: "study-block" as const,
+    title: "Study",
+    summary: "Legacy delegated study plan.",
+    score: 80,
+    activityMinutes: 45,
+    reasons: [],
+    tags: [],
+    timeline: [{ kind: "activity" as const, label: "Study", minutes: 45 }],
+  },
+  alternatives: [],
+  confidence: 0.8,
+  confidenceLabel: "high" as const,
+  travelMinutes: 0,
+  bufferMinutes: 0,
+  leaveByMinutes: 720,
+  arrivalMinutes: 720,
+  fallback: false,
+  routeStatus: "same-room" as const,
+  routeAccuracy: "Verified indoor + outdoor route" as const,
+  warnings: [],
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -110,6 +135,123 @@ describe("delegation failure boundaries", () => {
     await expect(readSnapshot(caller)).rejects.toMatchObject({
       code: "invalid_data",
     });
+  });
+
+  it("drops legacy gap plans whose boundaries are retired or reserved", async () => {
+    const value = snapshot({
+      permissions: {
+        readSchedule: true,
+        readPersonal: true,
+        writePersonal: false,
+        readGapPlans: true,
+        readGapPreferences: false,
+        writeGapPreferences: false,
+        readRoutingPreferences: false,
+      },
+      schedule: [
+        {
+          id: "academic-a",
+          courseCode: "CSC110Y5",
+          activityType: "LEC",
+          sectionCode: "LEC0101",
+          courseName: "Foundations of Computer Science",
+          startTime: 600,
+          endTime: 660,
+          weekday: "Monday",
+          buildingCode: "MN",
+          room: "1270",
+          term: "Fall",
+          locationUnknown: false,
+          isReservedAssessmentWindow: false,
+        },
+        {
+          id: "reserved",
+          courseCode: "CSC110Y5",
+          activityType: "LEC",
+          sectionCode: "LEC0101",
+          courseName: "Foundations of Computer Science",
+          startTime: 780,
+          endTime: 900,
+          weekday: "Saturday",
+          buildingCode: null,
+          room: null,
+          term: "Fall",
+          locationUnknown: true,
+          isReservedAssessmentWindow: true,
+          locationType: "tba",
+        },
+        {
+          id: "academic-b",
+          courseCode: "MAT157H5",
+          activityType: "LEC",
+          sectionCode: "LEC0101",
+          courseName: "Analysis I",
+          startTime: 720,
+          endTime: 780,
+          weekday: "Monday",
+          buildingCode: "MN",
+          room: "1210",
+          term: "Fall",
+          locationUnknown: false,
+          isReservedAssessmentWindow: false,
+        },
+      ],
+      personalItems: [
+        {
+          id: "legacy-personal",
+          title: "Old personal item",
+          category: "Study",
+          term: "Fall",
+          weekday: "Monday",
+          startTime: 680,
+          endTime: 700,
+          flexibility: { kind: "fixed" },
+          createdAt: "2026-08-20T00:00:00.000Z",
+          updatedAt: "2026-08-20T00:00:00.000Z",
+        },
+      ],
+      gapPlans: [
+        {
+          id: "valid-academic-gap",
+          term: "Fall",
+          weekday: "Monday",
+          startTime: 660,
+          endTime: 720,
+          durationMinutes: 60,
+          previousMeetingId: "academic-a",
+          nextMeetingId: "academic-b",
+          assessment: legacyAssessment,
+        },
+        {
+          id: "legacy-personal-gap",
+          term: "Fall",
+          weekday: "Monday",
+          startTime: 660,
+          endTime: 680,
+          durationMinutes: 20,
+          previousMeetingId: "academic-a",
+          nextMeetingId: "legacy-personal",
+          assessment: { ...legacyAssessment, primary: { ...legacyAssessment.primary, activityMinutes: 20 } },
+        },
+        {
+          id: "reserved-boundary-gap",
+          term: "Fall",
+          weekday: "Saturday",
+          startTime: 720,
+          endTime: 780,
+          durationMinutes: 60,
+          previousMeetingId: "academic-b",
+          nextMeetingId: "reserved",
+          assessment: legacyAssessment,
+        },
+      ],
+    });
+    db.getDelegation.mockResolvedValue(delegationRow(value));
+
+    const current = await readSnapshot(caller);
+    expect(current.personalItems).toEqual([]);
+    expect(current.permissions.readPersonal).toBe(false);
+    expect(current.gapPlans.map((plan) => plan.id)).toEqual(["valid-academic-gap"]);
   });
 
   it("rejects personal writes when delegation is read-only", async () => {
