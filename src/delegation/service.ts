@@ -7,6 +7,7 @@ import {
   AiSnapshotSchema,
   CompleteActionSchema,
   type AiAction,
+  type AiPermissions,
   type AiSnapshot,
 } from "@/src/domain/schemas";
 import { validateAiActionSemantics } from "@/src/domain/write-safety";
@@ -41,6 +42,23 @@ export class DelegationError extends Error {
   }
 }
 
+function currentPermissions(permissions: AiPermissions): AiPermissions {
+  return { ...permissions, readPersonal: false, writePersonal: false };
+}
+
+/**
+ * Convert schema-v1 delegated data into the current product semantics.
+ * Personal Items were retired in Gapwise; legacy encrypted fields remain parseable only so old
+ * snapshots can migrate without breaking access to the student's academic timetable.
+ */
+function currentSnapshot(snapshot: AiSnapshot): AiSnapshot {
+  return {
+    ...snapshot,
+    permissions: currentPermissions(snapshot.permissions),
+    personalItems: [],
+  };
+}
+
 export async function delegationStatus(caller: VerifiedCaller) {
   const row = await getDelegation(caller);
   if (!row || !row.enabled) return { enabled: false as const };
@@ -49,7 +67,7 @@ export async function delegationStatus(caller: VerifiedCaller) {
   return {
     enabled: true as const,
     revision: row.revision,
-    permissions: permissions.data,
+    permissions: currentPermissions(permissions.data),
     updatedAt: row.updated_at,
   };
 }
@@ -57,7 +75,7 @@ export async function delegationStatus(caller: VerifiedCaller) {
 export async function publishSnapshot(caller: VerifiedCaller, value: unknown) {
   const parsed = AiSnapshotSchema.safeParse(value);
   if (!parsed.success) throw new DelegationError("invalid_data", "AI snapshot is invalid.");
-  const snapshot = parsed.data;
+  const snapshot = currentSnapshot(parsed.data);
   const current = await getDelegation(caller);
   const config = getRuntimeConfig();
 
@@ -139,7 +157,7 @@ export async function readSnapshot(caller: VerifiedCaller): Promise<AiSnapshot> 
   if (!storedPermissions.success || JSON.stringify(storedPermissions.data) !== JSON.stringify(parsed.data.permissions)) {
     throw new DelegationError("invalid_data", "Stored AI permission metadata is inconsistent.");
   }
-  return parsed.data;
+  return currentSnapshot(parsed.data);
 }
 
 export async function revokeDelegation(caller: VerifiedCaller) {
@@ -149,23 +167,17 @@ export async function revokeDelegation(caller: VerifiedCaller) {
 }
 
 function requirePermission(snapshot: AiSnapshot, action: AiAction) {
-  if (
-    (action.kind === "create_personal_item" ||
-      action.kind === "update_personal_item" ||
-      action.kind === "delete_personal_item") &&
-    !snapshot.permissions.writePersonal
-  ) {
-    throw new DelegationError("forbidden", "Gapwise has not granted AI permission to edit personal items.");
-  }
   if (action.kind === "update_gap_preferences" && !snapshot.permissions.writeGapPreferences) {
     throw new DelegationError("forbidden", "Gapwise has not granted AI permission to edit gap preferences.");
   }
-  if (
-    (action.kind === "update_personal_item" || action.kind === "delete_personal_item") &&
-    !snapshot.personalItems.some((item) => item.id === action.itemId)
-  ) {
-    throw new DelegationError("not_found", "That personal timetable item is not in the delegated snapshot.");
-  }
+}
+
+function isRetiredPersonalAction(action: AiAction): boolean {
+  return (
+    action.kind === "create_personal_item" ||
+    action.kind === "update_personal_item" ||
+    action.kind === "delete_personal_item"
+  );
 }
 
 export async function queueAction(
@@ -176,6 +188,12 @@ export async function queueAction(
   const parsed = AiActionSchema.safeParse(value);
   if (!parsed.success) throw new DelegationError("invalid_data", "AI action is invalid.");
   const action = parsed.data;
+  if (isRetiredPersonalAction(action)) {
+    throw new DelegationError(
+      "forbidden",
+      "Personal Items have been retired from Gapwise and cannot be created, updated, or deleted by AI.",
+    );
+  }
   const snapshot = await readSnapshot(caller);
   if (action.expectedRevision !== snapshot.revision) {
     throw new DelegationError(
