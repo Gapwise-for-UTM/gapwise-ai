@@ -5,10 +5,12 @@ import {
   listUtmBuildings,
   planUtmGapWindow,
   PublicBuildingOutputSchema,
+  PublicBuildingSearchOutputSchema,
   PublicBuildingsOutputSchema,
   PublicGapPlanOutputSchema,
   PublicRouteOutputSchema,
   routeBetweenUtmBuildings,
+  searchUtmBuildings,
 } from "@/src/domain/public-campus";
 import { GapPreferencesPatchSchema, TermSchema, WeekdaySchema } from "@/src/domain/schemas";
 import {
@@ -50,7 +52,7 @@ export function registerPublicCampusTools(server: McpRegistrar): void {
     {
       title: "List UTM buildings known to Gapwise",
       description:
-        "List canonical UTM buildings and Gapwise's current routing/accessibility coverage and provenance. This is public stateless campus data: it does not read the user's timetable, account, friends, location, or private sync state. Use canonical building codes returned here for routing questions.",
+        "List canonical UTM buildings and Gapwise's current routing/accessibility coverage and provenance. This is public stateless campus data: it does not read the user's timetable, account, friends, location, or private sync state. Prefer search_utm_buildings when the user gives a partial name, abbreviation, or uncertain building reference.",
       inputSchema: z.object({}).strict(),
       outputSchema: PublicBuildingsOutputSchema,
       annotations: { readOnlyHint: true, openWorldHint: false },
@@ -66,11 +68,45 @@ export function registerPublicCampusTools(server: McpRegistrar): void {
   );
 
   server.registerTool(
+    "search_utm_buildings",
+    {
+      title: "Search UTM buildings with Gapwise",
+      description:
+        "Search Gapwise's canonical UTM building directory by code, official name, or alias. Use this to resolve partial or conversational references such as 'Deerfield', 'MN', or a building nickname before routing. Results are ranked deterministically and include match reasons; no user-private data is read.",
+      inputSchema: z
+        .object({
+          query: z.string().min(1).max(240),
+          maxResults: z.number().int().min(1).max(20).default(8),
+        })
+        .strict(),
+      outputSchema: PublicBuildingSearchOutputSchema,
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ query, maxResults }) => {
+      try {
+        const value = await searchUtmBuildings(query, maxResults);
+        const summary = value.results.length
+          ? [
+              `Gapwise UTM building search for “${query}”:`,
+              ...value.results.map(
+                (result) =>
+                  `- ${result.building.code} — ${result.building.name} (score ${result.score}; matched ${result.matchReasons.join(", ")})`,
+              ),
+            ].join("\n")
+          : `Gapwise found no canonical UTM building matching “${query}”.`;
+        return ok(summary, value);
+      } catch (error) {
+        return failure(error);
+      }
+    },
+  );
+
+  server.registerTool(
     "get_utm_building",
     {
       title: "Get a UTM building from Gapwise",
       description:
-        "Resolve one exact canonical UTM building by code, official name, or known alias and return Gapwise routing coverage, accessibility state and provenance. Fails closed on unknown or ambiguous names rather than guessing.",
+        "Resolve one exact canonical UTM building by code, official name, or known alias and return Gapwise routing coverage, accessibility state and provenance. Fails closed on unknown or ambiguous names rather than guessing. Use search_utm_buildings first when the reference is partial or uncertain.",
       inputSchema: z.object({ query: z.string().min(1).max(240) }).strict(),
       outputSchema: PublicBuildingOutputSchema,
       annotations: { readOnlyHint: true, openWorldHint: false },
