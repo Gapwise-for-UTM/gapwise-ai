@@ -135,16 +135,28 @@ describe("delegation failure boundaries", () => {
     expect(db.insertAction).not.toHaveBeenCalled();
   });
 
-  it("rejects stale writes before queueing them", async () => {
+  it("rejects stale supported writes before queueing them", async () => {
     const value = snapshot({
       permissions: {
         readSchedule: true,
-        readPersonal: true,
-        writePersonal: true,
+        readPersonal: false,
+        writePersonal: false,
         readGapPlans: false,
-        readGapPreferences: false,
-        writeGapPreferences: false,
+        readGapPreferences: true,
+        writeGapPreferences: true,
         readRoutingPreferences: false,
+      },
+      gapPreferences: {
+        setupMinutes: 5,
+        packUpMinutes: 5,
+        lunchWindowStart: 690,
+        lunchWindowEnd: 840,
+        mealDurationMinutes: 30,
+        willingToLeaveCampus: false,
+        oneWayHomeCommuteMinutes: 45,
+        minimumHomeStayMinutes: 60,
+        homeTurnaroundMinutes: 10,
+        riskTolerance: "medium",
       },
     });
     db.getDelegation.mockResolvedValue(delegationRow(value));
@@ -152,15 +164,9 @@ describe("delegation failure boundaries", () => {
     await expect(
       queueAction(caller, {
         schemaVersion: 1,
-        kind: "create_personal_item",
+        kind: "update_gap_preferences",
         expectedRevision: value.revision - 1,
-        item: {
-          title: "Stale study block",
-          category: "Study",
-          term: "Fall",
-          weekday: "Monday",
-          flexibility: { kind: "flexible", durationMinutes: 60 },
-        },
+        patch: { riskTolerance: "low" },
       }),
     ).rejects.toMatchObject({ code: "conflict" });
 

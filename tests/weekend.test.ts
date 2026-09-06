@@ -34,6 +34,7 @@ function meeting(
     room: "110",
     term: "Fall" as const,
     locationUnknown: false,
+    isReservedAssessmentWindow: false,
     locationType: "physical" as const,
     dateRange: { startDate, endDate: "2026-12-06" },
     recurrenceIntervalWeeks: 1,
@@ -74,7 +75,7 @@ const snapshot: AiSnapshot = {
 };
 
 describe("weekend delegation and planning", () => {
-  it("accepts Saturday and Sunday across snapshot and write schemas", () => {
+  it("accepts Saturday and Sunday across snapshot and legacy write schemas", () => {
     expect(AiSnapshotSchema.safeParse(snapshot).success).toBe(true);
     expect(
       AiActionSchema.safeParse({

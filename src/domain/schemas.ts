@@ -33,6 +33,10 @@ export const MeetingSchema = z
     room: optionalShortText,
     term: TermSchema,
     locationUnknown: z.boolean(),
+    // Added to schema v1 as an optional, default-false compatibility extension. Older snapshots
+    // remain valid; new Gapwise snapshots can distinguish ACORN assessment placeholders from
+    // ordinary classes whose room is merely TBA.
+    isReservedAssessmentWindow: z.boolean().optional().default(false),
     locationType: MeetingLocationTypeSchema.optional(),
     dateRange: z
       .object({
@@ -115,6 +119,8 @@ const FlexiblePersonalItemSchema = z
   })
   .strict();
 
+// Personal Item schemas remain only to decode legacy schema-v1 snapshots/actions. Personal Items
+// are retired from the current MCP surface and are normalized away before planning.
 export const PersonalItemSchema = z.union([FixedPersonalItemSchema, FlexiblePersonalItemSchema]);
 
 const GapPreferencesBaseSchema = z
@@ -375,6 +381,9 @@ export const GapPreferencesPatchSchema = GapPreferencesBaseSchema.partial()
   .strict()
   .refine((value) => Object.keys(value).length > 0, { message: "At least one change is required." });
 
+// Legacy Personal Item actions remain parseable so previously queued encrypted actions can be
+// handled deterministically. They are no longer registered as MCP tools and queueAction rejects
+// them as retired.
 export const AiActionSchema = z.discriminatedUnion("kind", [
   z
     .object({
