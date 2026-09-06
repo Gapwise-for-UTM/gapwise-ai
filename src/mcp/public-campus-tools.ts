@@ -2,21 +2,28 @@ import type { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
 import {
   getUtmBuilding,
+  getUtmPlace,
   listUtmBuildings,
   planUtmGapWindow,
   PublicBuildingOutputSchema,
   PublicBuildingSearchOutputSchema,
   PublicBuildingsOutputSchema,
   PublicGapPlanOutputSchema,
+  PublicPlaceKindSchema,
+  PublicPlaceOutputSchema,
+  PublicPlaceSearchOutputSchema,
   PublicRouteOutputSchema,
   routeBetweenUtmBuildings,
   searchUtmBuildings,
+  searchUtmPlaces,
 } from "@/src/domain/public-campus";
 import { GapPreferencesPatchSchema, TermSchema, WeekdaySchema } from "@/src/domain/schemas";
 import {
   formatPublicBuilding,
   formatPublicBuildings,
   formatPublicGapPlan,
+  formatPublicPlace,
+  formatPublicPlaceSearch,
   formatPublicRoute,
 } from "@/src/mcp/public-campus-formatters";
 
@@ -115,6 +122,62 @@ export function registerPublicCampusTools(server: McpRegistrar): void {
       try {
         const value = await getUtmBuilding(query);
         return ok(formatPublicBuilding(value.building), value);
+      } catch (error) {
+        return failure(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "search_utm_places",
+    {
+      title: "Search UTM places with Gapwise",
+      description:
+        "Search Gapwise's source-backed UTM place catalog for study spaces, libraries, dining, recreation, services, amenities, and facilities. Search by name/description/amenity or filter by place kind and building. Results preserve provenance and never treat unknown operating hours as closed. This is stateless public campus data and does not read the user's private Gapwise state. Use get_utm_place on a returned canonical id for full details and official action links.",
+      inputSchema: z
+        .object({
+          query: z.string().min(1).max(240).optional(),
+          kind: PublicPlaceKindSchema.optional(),
+          building: z.string().min(1).max(240).optional(),
+          amenity: z.string().min(1).max(240).optional(),
+          maxResults: z.number().int().min(1).max(20).default(10),
+        })
+        .strict()
+        .refine(
+          (value) => Boolean(value.query || value.kind || value.building || value.amenity),
+          { message: "Provide a query or at least one place filter." },
+        ),
+      outputSchema: PublicPlaceSearchOutputSchema,
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => {
+      try {
+        const value = await searchUtmPlaces(args);
+        return ok(formatPublicPlaceSearch(value), value);
+      } catch (error) {
+        return failure(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_utm_place",
+    {
+      title: "Get a UTM place from Gapwise",
+      description:
+        "Return one exact source-backed UTM campus place by canonical id, including building, category, amenities, official actions, and metadata/hours provenance. Preserve unknown or stale operating-hours evidence exactly; unknown never means closed. Use search_utm_places first when the place id is not already known.",
+      inputSchema: z
+        .object({
+          id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u).max(240),
+        })
+        .strict(),
+      outputSchema: PublicPlaceOutputSchema,
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ id }) => {
+      try {
+        const value = await getUtmPlace(id);
+        return ok(formatPublicPlace(value.place, value.source ?? null), value);
       } catch (error) {
         return failure(error);
       }
