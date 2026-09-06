@@ -1,14 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  getUtmPlace,
   listUtmBuildings,
   planUtmGapWindow,
   routeBetweenUtmBuildings,
+  searchUtmPlaces,
   type PublicBuilding,
   type PublicGapPlan,
+  type PublicPlace,
   type PublicRoute,
 } from "@/src/domain/public-campus";
 import {
   formatPublicGapPlan,
+  formatPublicPlace,
+  formatPublicPlaceSearch,
   formatPublicRoute,
 } from "@/src/mcp/public-campus-formatters";
 
@@ -49,6 +54,41 @@ const route: PublicRoute = {
   routeVerification: "mixed",
 };
 
+const libraryPlace: PublicPlace = {
+  id: "utm-library",
+  name: "Hazel McCallion Academic Learning Centre",
+  kind: "library",
+  buildingCode: "HM",
+  summary: "UTM's library and academic learning centre.",
+  amenities: ["individual study", "group study", "library services"],
+  actions: [
+    {
+      label: "Library information and hours",
+      url: "https://library.utm.utoronto.ca/",
+      kind: "information",
+    },
+  ],
+  hoursProvenance: {
+    sourceId: "utm-library",
+    status: "unknown",
+    observedAt: "2026-08-24T00:00:00Z",
+    note: "Stable place identity is published, but current operating hours are not bundled; check the official source.",
+  },
+  metadataProvenance: {
+    sourceId: "utm-library",
+    status: "verified",
+    observedAt: "2026-08-24T00:00:00Z",
+  },
+};
+
+const librarySource = {
+  id: "utm-library",
+  name: "UTM Library",
+  url: "https://library.utm.utoronto.ca/",
+  kind: "official" as const,
+  retrievedAt: "2026-08-24T00:00:00Z",
+};
+
 beforeEach(() => {
   process.env.GAPWISE_SUPABASE_URL = "https://example.supabase.co";
   process.env.GAPWISE_SUPABASE_PUBLISHABLE_KEY = "publishable-key-with-enough-length";
@@ -76,6 +116,61 @@ describe("public campus intelligence adapter", () => {
       new URL("https://gapwise.ca/api/utm-buildings"),
       expect.objectContaining({ cache: "no-store" }),
     );
+  });
+
+  it("searches source-backed UTM places without inventing open-now state", async () => {
+    const fetchMock = vi.fn(async (url: URL) => {
+      expect(url.toString()).toBe("https://gapwise.ca/api/utm-places");
+      return new Response(
+        JSON.stringify({
+          service: "gapwise-public-campus",
+          dataVersion: "utm-campus-state-2026-08-24",
+          generatedAt: "2026-08-24T00:00:00Z",
+          places: [libraryPlace],
+          sources: [librarySource],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const value = await searchUtmPlaces({
+      query: "study",
+      kind: "library",
+      building: "HM",
+      amenity: "individual",
+    });
+    expect(value.results).toHaveLength(1);
+    expect(value.results[0]?.place.id).toBe("utm-library");
+    expect(value.results[0]?.source?.name).toBe("UTM Library");
+    const text = formatPublicPlaceSearch(value);
+    expect(text).toContain("Hazel McCallion Academic Learning Centre");
+    expect(text).toContain("hours unknown");
+    expect(text).toContain("Unknown hours are not closed");
+  });
+
+  it("returns exact UTM place provenance and official action links", async () => {
+    const fetchMock = vi.fn(async (url: URL) => {
+      expect(url.toString()).toBe("https://gapwise.ca/api/utm-place?id=utm-library");
+      return new Response(
+        JSON.stringify({
+          service: "gapwise-public-campus",
+          dataVersion: "utm-campus-state-2026-08-24",
+          place: libraryPlace,
+          source: librarySource,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const value = await getUtmPlace("utm-library");
+    expect(value.place.buildingCode).toBe("HM");
+    const text = formatPublicPlace(value.place, value.source ?? null);
+    expect(text).toContain("Operating hours: unknown");
+    expect(text).toContain("Unknown does not mean closed");
+    expect(text).toContain("Library information and hours");
+    expect(text).toContain("UTM Library");
   });
 
   it("passes bounded route preferences to the deterministic Gapwise API", async () => {
