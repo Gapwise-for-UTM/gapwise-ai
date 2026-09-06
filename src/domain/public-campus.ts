@@ -36,6 +36,18 @@ export const PublicBuildingOutputSchema = z.object({
   building: PublicBuildingSchema,
 });
 
+export const PublicBuildingSearchOutputSchema = z.object({
+  service: z.literal("gapwise-public-campus"),
+  query: z.string().min(1).max(240),
+  results: z.array(
+    z.object({
+      score: z.number().int().min(1).max(200),
+      matchReasons: z.array(z.string().min(1).max(120)).max(8),
+      building: PublicBuildingSchema,
+    }),
+  ),
+});
+
 export const PublicRouteSchema = z.object({
   dataVersion: z.string(),
   from: PublicBuildingSchema,
@@ -178,6 +190,51 @@ async function fetchJson(path: string, init?: RequestInit): Promise<unknown> {
 
 export async function listUtmBuildings() {
   return PublicBuildingsOutputSchema.parse(await fetchJson("/api/utm-buildings"));
+}
+
+function normalizeSearch(value: string): string {
+  return value.toLocaleLowerCase("en-CA").replace(/[^a-z0-9]+/gu, " ").trim();
+}
+
+function buildingMatch(query: string, building: PublicBuilding) {
+  const q = normalizeSearch(query);
+  const compactQuery = q.replace(/\s+/gu, "");
+  const candidates = [
+    ["code", building.code, 200, 190, 180, 170],
+    ["official name", building.name, 185, 170, 160, 150],
+    ...building.aliases.map((alias) => ["alias", alias, 180, 165, 155, 145] as const),
+  ] as const;
+  let score = 0;
+  const reasons: string[] = [];
+  for (const [label, raw, exact, prefix, token, contains] of candidates) {
+    const value = normalizeSearch(raw);
+    let current = 0;
+    if (value === q) current = exact;
+    else if (value.startsWith(q)) current = prefix;
+    else if (value.split(/\s+/u).some((part) => part === q || part.startsWith(q))) current = token;
+    else if (value.includes(q)) current = contains;
+    else if (compactQuery && value.replace(/\s+/gu, "").includes(compactQuery)) current = contains - 5;
+    if (current > 0) reasons.push(label);
+    score = Math.max(score, current);
+  }
+  return { score, reasons: [...new Set(reasons)] };
+}
+
+export async function searchUtmBuildings(query: string, maxResults = 8) {
+  const { buildings } = await listUtmBuildings();
+  const results = buildings
+    .map((building) => {
+      const match = buildingMatch(query, building);
+      return { score: match.score, matchReasons: match.reasons, building };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.building.code.localeCompare(b.building.code))
+    .slice(0, maxResults);
+  return PublicBuildingSearchOutputSchema.parse({
+    service: "gapwise-public-campus",
+    query,
+    results,
+  });
 }
 
 export async function getUtmBuilding(query: string) {
