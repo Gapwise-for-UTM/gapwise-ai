@@ -1,4 +1,4 @@
-import { groupGapPlans, scheduleDataFlags } from "@/src/domain/assistant-data";
+import { scheduleDataFlags } from "@/src/domain/assistant-data";
 import type { AiSnapshot, PersonalItem } from "@/src/domain/schemas";
 import { daySchedule, weekSchedule } from "@/src/domain/schedule";
 
@@ -54,10 +54,6 @@ function isFixedPersonal(item: PersonalItem): item is FixedPersonalItem {
 
 function isFlexiblePersonal(item: PersonalItem): item is FlexiblePersonalItem {
   return item.flexibility.kind === "flexible";
-}
-
-function activeAcademic(meetings: Meeting[]): Meeting[] {
-  return meetings.filter((meeting) => !meeting.isReservedAssessmentWindow);
 }
 
 function scopeData(snapshot: AiSnapshot, scope: DecisionScope): ScopedData {
@@ -528,7 +524,7 @@ export function decisionContext(snapshot: AiSnapshot, term: Term) {
     },
     days,
     topGapOpportunities: opportunities,
-    gapPlanGroups: groupGapPlans(week.gapPlans),
+    gapPlanGroups: week.gapPlanGroups,
     dataQualityFlags: scheduleDataFlags(week.academicMeetings),
     actionItems,
     gapPreferences: snapshot.permissions.readGapPreferences ? snapshot.gapPreferences : null,
