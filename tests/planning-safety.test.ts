@@ -59,6 +59,7 @@ const snapshot: AiSnapshot = {
       room: "1210",
       term: "Fall",
       locationUnknown: false,
+      isReservedAssessmentWindow: false,
     },
     {
       id: "mon-2",
@@ -73,6 +74,7 @@ const snapshot: AiSnapshot = {
       room: "2010",
       term: "Fall",
       locationUnknown: false,
+      isReservedAssessmentWindow: false,
     },
     {
       id: "tue-1",
@@ -87,6 +89,7 @@ const snapshot: AiSnapshot = {
       room: "1210",
       term: "Fall",
       locationUnknown: false,
+      isReservedAssessmentWindow: false,
     },
     {
       id: "tue-2",
@@ -101,6 +104,7 @@ const snapshot: AiSnapshot = {
       room: "2010",
       term: "Fall",
       locationUnknown: false,
+      isReservedAssessmentWindow: false,
     },
   ],
   personalItems: [],
@@ -161,7 +165,7 @@ describe("weekly Gapwise opportunities", () => {
   });
 });
 
-describe("personal-item semantic write safety", () => {
+describe("legacy personal-item semantic write safety", () => {
   it("rejects an AI-created fixed item that overlaps an academic class", () => {
     const result = validateAiActionSemantics(snapshot, {
       schemaVersion: 1,
