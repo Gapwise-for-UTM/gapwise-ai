@@ -107,6 +107,9 @@ export function scheduleDataFlags(meetings: Meeting[]): ScheduleDataFlag[] {
       room: meeting.room,
       term: meeting.term,
       locationType: meeting.locationType ?? null,
+      dateRange: meeting.dateRange ?? null,
+      excludedDates: meeting.excludedDates ?? [],
+      recurrenceIntervalWeeks: meeting.recurrenceIntervalWeeks ?? 1,
     }),
   );
   for (const duplicateGroup of duplicates.values()) {
@@ -117,7 +120,7 @@ export function scheduleDataFlags(meetings: Meeting[]): ScheduleDataFlag[] {
       severity: "warning",
       scope: "meeting",
       courseCode: first.courseCode,
-      message: `${first.courseCode} ${first.sectionCode} contains duplicate meeting records with the same day, time, and location.`,
+      message: `${first.courseCode} ${first.sectionCode} contains duplicate meeting records with the same day, time, location, and recurrence.`,
       evidence: {
         sectionCode: first.sectionCode,
         weekday: first.weekday,
@@ -320,7 +323,7 @@ export function groupGapPlans(plans: GapPlan[], meetings: Meeting[] = []) {
     const existing = groups.get(key);
     if (existing) {
       if (!existing.appliesTo.includes(plan.weekday)) existing.appliesTo.push(plan.weekday);
-      existing.sourceGapPlanIds.push(plan.id);
+      if (!existing.sourceGapPlanIds.includes(plan.id)) existing.sourceGapPlanIds.push(plan.id);
       continue;
     }
     groups.set(key, gapPlanGroupFromPlan(plan, meetingsById));
@@ -355,7 +358,7 @@ export function groupGapPlansByDate(
       const existing = groups.get(key);
       if (existing) {
         if (!existing.appliesToDates.includes(entry.date)) existing.appliesToDates.push(entry.date);
-        existing.sourceGapPlanIds.push(plan.id);
+        if (!existing.sourceGapPlanIds.includes(plan.id)) existing.sourceGapPlanIds.push(plan.id);
         continue;
       }
       const { appliesTo: _appliesTo, ...base } = gapPlanGroupFromPlan(plan, meetingsById);
