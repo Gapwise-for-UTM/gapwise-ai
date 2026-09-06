@@ -55,6 +55,10 @@ function isFlexiblePersonal(item: PersonalItem): item is FlexiblePersonalItem {
   return item.flexibility.kind === "flexible";
 }
 
+function activeAcademic(meetings: Meeting[]): Meeting[] {
+  return meetings.filter((meeting) => !meeting.isReservedAssessmentWindow);
+}
+
 function scopeData(snapshot: AiSnapshot, scope: DecisionScope): ScopedData {
   if (scope.kind === "date") {
     const day = daySchedule(snapshot, scope.date);
@@ -62,7 +66,7 @@ function scopeData(snapshot: AiSnapshot, scope: DecisionScope): ScopedData {
       term: day.term,
       weekday: day.weekday,
       date: scope.date,
-      meetings: day.meetings,
+      meetings: activeAcademic(day.meetings),
       personalItems: day.personalItems,
       gapPlans: day.gapPlans,
     };
@@ -73,7 +77,7 @@ function scopeData(snapshot: AiSnapshot, scope: DecisionScope): ScopedData {
     term: scope.term,
     weekday: scope.weekday,
     date: null,
-    meetings: week.meetings.filter((meeting) => meeting.weekday === scope.weekday),
+    meetings: activeAcademic(week.meetings).filter((meeting) => meeting.weekday === scope.weekday),
     personalItems: week.personalItems.filter((item) => item.weekday === scope.weekday),
     gapPlans: week.gapPlans.filter((plan) => plan.weekday === scope.weekday),
   };
@@ -375,12 +379,12 @@ export function checkPlanFeasibility(snapshot: AiSnapshot, query: PlanFeasibilit
       : null;
   if (requestedLocation) {
     warnings.push(
-      "The proposed personal-item location was not route-validated by this tool; only delegated Gapwise gap/transition facts are authoritative.",
+      "The proposed location was not route-validated by this tool; only delegated Gapwise gap/transition facts are authoritative.",
     );
   }
   if (softConflicts.length > 0) {
     warnings.push(
-      "One or more delegated flexible personal items could compete for this time window; they are soft constraints rather than hard conflicts.",
+      "A legacy delegated flexible Personal Item could compete for this time window. Current Gapwise snapshots retire Personal Items and normally return none.",
     );
   }
 
@@ -421,7 +425,7 @@ export function decisionContext(snapshot: AiSnapshot, term: Term) {
     "Sunday",
   ] as const;
   const days = weekdays.map((weekday) => {
-    const meetings = week.meetings.filter((meeting) => meeting.weekday === weekday);
+    const meetings = activeAcademic(week.meetings).filter((meeting) => meeting.weekday === weekday);
     const fixedPersonal = week.personalItems.filter(
       (item): item is FixedPersonalItem => isFixedPersonal(item) && item.weekday === weekday,
     );
@@ -474,10 +478,9 @@ export function decisionContext(snapshot: AiSnapshot, term: Term) {
         b.assessment.primary.activityMinutes - a.assessment.primary.activityMinutes,
     )
     .slice(0, 8);
-  const limitations: string[] = [];
-  if (!snapshot.permissions.readPersonal) {
-    limitations.push("Personal timetable items are not delegated, so planning ignores them.");
-  }
+  const limitations: string[] = [
+    "Reserved assessment windows are informational placeholders and are excluded from hard schedule load, gaps, routes, and feasibility until an assessment is separately confirmed.",
+  ];
   if (!snapshot.permissions.readGapPlans) {
     limitations.push("Gap-plan sharing is disabled, so deterministic gap opportunities are unavailable.");
   }
@@ -494,7 +497,7 @@ export function decisionContext(snapshot: AiSnapshot, term: Term) {
     term,
     permissions: snapshot.permissions,
     hardConstraintSummary: {
-      academicMeetingCount: week.meetings.length,
+      academicMeetingCount: activeAcademic(week.meetings).length,
       fixedPersonalCount: week.personalItems.filter(isFixedPersonal).length,
     },
     days,
