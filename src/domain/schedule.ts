@@ -42,7 +42,7 @@ export function weekdayForDate(date: string): Weekday {
   return JS_WEEKDAYS[parseDate(date).getUTCDay()]!;
 }
 
-function academicMeetingOccursOnDate(
+export function academicMeetingOccursOnDate(
   meeting: AiSnapshot["schedule"][number],
   date: string,
 ): boolean {
@@ -88,7 +88,9 @@ export function daySchedule(snapshot: AiSnapshot, date: string) {
         })
     : [];
   const occurringBoundaryIds = new Set([
-    ...meetings.map((meeting) => meeting.id),
+    ...meetings
+      .filter((meeting) => !meeting.isReservedAssessmentWindow)
+      .map((meeting) => meeting.id),
     ...personalItems.filter(isFixedPersonal).map((item) => item.id),
   ]);
   const gapPlans = snapshot.permissions.readGapPlans
@@ -160,7 +162,10 @@ export function gapContext(
       )
     : [];
   const academic = snapshot.schedule.filter(
-    (meeting) => meeting.term === input.term && meeting.weekday === input.weekday,
+    (meeting) =>
+      !meeting.isReservedAssessmentWindow &&
+      meeting.term === input.term &&
+      meeting.weekday === input.weekday,
   );
   const boundaries = [
     ...academic.map((item) => ({
