@@ -18,13 +18,13 @@ export default function HomePage() {
         <section style={{ display: "grid", gridTemplateColumns: "minmax(0,1.15fr) minmax(320px,.85fr)", gap: 16, alignItems: "stretch" }}>
           <div style={{ position: "relative", overflow: "hidden", padding: "clamp(34px,5vw,58px)", border: "1px solid #45305d", borderRadius: 24, background: "linear-gradient(145deg,rgba(31,18,44,.98),rgba(13,9,19,.98) 68%)", boxShadow: "inset 0 1px rgba(255,255,255,.04),0 28px 70px rgba(0,0,0,.25)" }}>
             <div style={{ position: "absolute", width: 430, height: 430, right: -170, bottom: -230, border: "1px solid rgba(139,92,246,.22)", borderRadius: "50%", boxShadow: "0 0 0 45px rgba(139,92,246,.035),0 0 0 90px rgba(139,92,246,.022)" }} />
-            <p style={{ margin: 0, color: "#a78bfa", fontSize: 11, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase" }}>Gapwise intelligence layer</p>
+            <p style={{ margin: 0, color: "#a78bfa", fontSize: 11, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase" }}>Gapwise intelligence layer · MCP v0.4</p>
             <h1 style={{ maxWidth: 680, fontSize: "clamp(3.2rem,7vw,6.2rem)", margin: "32px 0 24px", lineHeight: .94, letterSpacing: "-.065em", fontWeight: 650 }}>
               Campus context,
               <br />delegated <span style={{ color: "#8b5cf6" }}>carefully.</span>
             </h1>
             <p style={{ maxWidth: 680, margin: 0, color: "#aaa0b2", fontSize: 17, lineHeight: 1.65 }}>
-              Permissioned, provider-neutral MCP access for explicitly delegated Gapwise student context. Academic meetings stay read-only; personal-item writes are permissioned, revision-checked, and queued for Gapwise to apply.
+              Permissioned, provider-neutral MCP access for explicitly delegated Gapwise student context. Search schedule and course context, find realistic availability, discover source-backed UTM places, and preserve Gapwise route and assessment uncertainty. Academic meetings stay read-only; Personal Items are retired.
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 32 }}>
               <a href="https://docs.gapwise.ca/ai/connect" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 44, padding: "0 18px", border: "1px solid #9b74f8", borderRadius: 10, background: "#7c4df0", color: "white", textDecoration: "none", fontSize: 13, fontWeight: 700 }}>Connect an AI client →</a>
@@ -36,14 +36,15 @@ export default function HomePage() {
             <img src="/logo-mark-purple.svg" width={54} height={54} alt="Gapwise AI deer mark" style={{ display: "block", marginBottom: 32 }} />
             <p style={{ margin: 0, color: "#a78bfa", fontSize: 11, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase" }}>MCP endpoint</p>
             <h2 style={{ margin: "10px 0 12px", fontSize: 29, lineHeight: 1.08, letterSpacing: "-.045em" }}>Private by design.</h2>
-            <p style={{ margin: 0, color: "#a59aaa", fontSize: 14, lineHeight: 1.65 }}>No timetable or account data is exposed by this public page. Private tools require authentication and explicit delegation.</p>
+            <p style={{ margin: 0, color: "#a59aaa", fontSize: 14, lineHeight: 1.65 }}>No timetable or account data is exposed by this public page. Private tools require authentication and explicit delegation. Public campus tools remain stateless.</p>
             <div style={{ marginTop: 28, padding: 18, border: "1px solid #49345f", borderRadius: 14, background: "#120d18" }}>
               <code style={{ color: "#c4b5fd", fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace", fontSize: 13 }}>/api/mcp</code>
               <div style={{ height: 1, background: "#362642", margin: "16px 0" }} />
               <div style={{ display: "grid", gap: 12, color: "#9f94a7", fontSize: 12 }}>
                 <span>● OAuth-protected private access</span>
                 <span>● Explicit student delegation</span>
-                <span>● Bounded, revision-checked writes</span>
+                <span>● Source-backed search and context</span>
+                <span>● Bounded gap-preference writes</span>
               </div>
             </div>
           </aside>
@@ -51,9 +52,9 @@ export default function HomePage() {
 
         <section style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 14, marginTop: 16 }}>
           {[
-            ["Read boundaries", "Academic meetings are available as read-only context, keeping the canonical schedule protected."],
-            ["Permissioned writes", "Personal-item mutations require delegated permission and are queued rather than silently applied."],
-            ["Provider neutral", "The MCP surface is designed around explicit capabilities instead of a single model provider."],
+            ["Search before guessing", "Resolve delegated courses, sections, rooms, buildings, and source-backed UTM places with deterministic search/context tools."],
+            ["Respect schedule semantics", "RES entries are possible assessment windows, not weekly commitments. Ordinary TBA-location classes still block their scheduled time."],
+            ["Keep uncertainty intact", "Unknown hours stay unknown, approximate routes stay approximate, and Gapwise gap budgets and warnings remain authoritative."],
           ].map(([title, copy]) => (
             <article key={title} style={{ padding: 24, border: "1px solid #3e2d50", borderRadius: 18, background: "rgba(23,16,31,.88)" }}>
               <div style={{ width: 8, height: 8, borderRadius: 999, background: "#8b5cf6", boxShadow: "0 0 0 5px rgba(139,92,246,.10)", marginBottom: 24 }} />
