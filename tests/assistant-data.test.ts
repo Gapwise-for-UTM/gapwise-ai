@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { groupGapPlans, scheduleDataFlags } from "@/src/domain/assistant-data";
+import {
+  groupGapPlans,
+  groupGapPlansByDate,
+  scheduleDataFlags,
+} from "@/src/domain/assistant-data";
 import type { AiSnapshot } from "@/src/domain/schemas";
 
 type Meeting = AiSnapshot["schedule"][number];
@@ -26,6 +30,30 @@ function mat223Meeting(
     locationUnknown: true,
     isReservedAssessmentWindow: false,
     locationType: "tba",
+  };
+}
+
+function boundaryMeeting(
+  id: string,
+  weekday: Meeting["weekday"],
+  courseCode: string,
+  buildingCode: string,
+): Meeting {
+  return {
+    id,
+    courseCode,
+    activityType: "LEC",
+    sectionCode: "LEC0101",
+    courseName: courseCode,
+    startTime: id.includes("before") ? 660 : 840,
+    endTime: id.includes("before") ? 720 : 900,
+    weekday,
+    buildingCode,
+    room: "1000",
+    term: "Fall",
+    locationUnknown: false,
+    isReservedAssessmentWindow: false,
+    locationType: "physical",
   };
 }
 
@@ -89,19 +117,70 @@ describe("assistant-facing MCP data helpers", () => {
   });
 
   it("groups equivalent gap plans once and lists all applicable weekdays", () => {
-    const groups = groupGapPlans([
-      plan("wed", "Wednesday", "wed-before", "wed-after"),
-      plan("fri", "Friday", "fri-before", "fri-after"),
-    ]);
+    const meetings: Meeting[] = [
+      boundaryMeeting("wed-before", "Wednesday", "MAT157Y5", "MN"),
+      boundaryMeeting("wed-after", "Wednesday", "CSC110Y5", "DH"),
+      boundaryMeeting("fri-before", "Friday", "MAT157Y5", "MN"),
+      boundaryMeeting("fri-after", "Friday", "CSC110Y5", "DH"),
+    ];
+    const groups = groupGapPlans(
+      [
+        plan("wed", "Wednesday", "wed-before", "wed-after"),
+        plan("fri", "Friday", "fri-before", "fri-after"),
+      ],
+      meetings,
+    );
 
     expect(groups).toHaveLength(1);
     expect(groups[0]?.appliesTo).toEqual(["Wednesday", "Friday"]);
     expect(groups[0]?.sourceGapPlanIds).toEqual(["wed", "fri"]);
     expect(groups[0]).toMatchObject({
+      previousCourseCode: "MAT157Y5",
+      previousBuildingCode: "MN",
+      nextCourseCode: "CSC110Y5",
+      nextBuildingCode: "DH",
       primaryTitle: "Lunch, then reset",
       usableActivityMinutes: 90,
       leaveByMinutes: 810,
       confidencePercent: 90,
     });
+  });
+
+  it("does not merge visually identical plans when their boundary facts differ", () => {
+    const meetings: Meeting[] = [
+      boundaryMeeting("wed-before", "Wednesday", "MAT157Y5", "MN"),
+      boundaryMeeting("wed-after", "Wednesday", "CSC110Y5", "DH"),
+      boundaryMeeting("fri-before", "Friday", "MAT223H5", "DV"),
+      boundaryMeeting("fri-after", "Friday", "CSC110Y5", "DH"),
+    ];
+    const groups = groupGapPlans(
+      [
+        plan("wed", "Wednesday", "wed-before", "wed-after"),
+        plan("fri", "Friday", "fri-before", "fri-after"),
+      ],
+      meetings,
+    );
+
+    expect(groups).toHaveLength(2);
+    expect(groups.map((group) => group.previousCourseCode)).toEqual(["MAT157Y5", "MAT223H5"]);
+  });
+
+  it("groups repeated range occurrences with appliesToDates", () => {
+    const repeated = plan("wed", "Wednesday", "wed-before", "wed-after");
+    const meetings: Meeting[] = [
+      boundaryMeeting("wed-before", "Wednesday", "MAT157Y5", "MN"),
+      boundaryMeeting("wed-after", "Wednesday", "CSC110Y5", "DH"),
+    ];
+    const groups = groupGapPlansByDate(
+      [
+        { date: "2026-09-09", gapPlans: [repeated] },
+        { date: "2026-09-16", gapPlans: [repeated] },
+      ],
+      meetings,
+    );
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.appliesToDates).toEqual(["2026-09-09", "2026-09-16"]);
+    expect(groups[0]?.previousCourseCode).toBe("MAT157Y5");
   });
 });
