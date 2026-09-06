@@ -25,7 +25,7 @@ export const MeetingFactSchema = z
 
 const gapPlanGroupBase = {
   term: TermSchema,
-  sourceGapPlanIds: z.array(z.string().min(1).max(500)).min(1).max(14),
+  sourceGapPlanIds: z.array(z.string().min(1).max(500)).min(1).max(200),
   startTime: minute,
   endTime: minute,
   durationMinutes: z.number().int().min(1).max(1440),
@@ -88,7 +88,7 @@ export const ScheduleDataFlagSchema = z
       .object({
         sectionCode: z.string().max(240).nullable(),
         weekday: WeekdaySchema.nullable(),
-        meetingIds: z.array(z.string().min(1).max(240)).max(100),
+        meetingIds: z.array(z.string().min(1).max(240)).max(400),
         weeklyMinutes: z.number().int().min(0).max(20_000).nullable(),
         startTime: minute.nullable(),
       })
