@@ -48,6 +48,22 @@ const snapshot: AiSnapshot = {
       isReservedAssessmentWindow: false,
       locationType: "physical",
     },
+    {
+      id: "csc-res",
+      courseCode: "CSC110Y5",
+      activityType: "LEC",
+      sectionCode: "LEC0101",
+      courseName: "Foundations of Computer Science",
+      startTime: 600,
+      endTime: 720,
+      weekday: "Saturday",
+      buildingCode: null,
+      room: null,
+      term: "Fall",
+      locationUnknown: true,
+      isReservedAssessmentWindow: true,
+      locationType: "tba",
+    },
   ],
   personalItems: [],
   gapPlans: [
@@ -94,8 +110,8 @@ const snapshot: AiSnapshot = {
   routingPreferences: null,
 };
 
-describe("decision-context gap groups", () => {
-  it("keeps surrounding course/component/location facts in the flat group", () => {
+describe("decision-context assistant data", () => {
+  it("keeps surrounding course/component/location facts in the flat gap group", () => {
     const result = decisionContext(snapshot, "Fall");
 
     expect(result.gapPlanGroups).toHaveLength(1);
@@ -112,5 +128,22 @@ describe("decision-context gap groups", () => {
       leaveByMinutes: 760,
       confidencePercent: 90,
     });
+  });
+
+  it("returns RES facts explicitly without counting them as hard academic load", () => {
+    const result = decisionContext(snapshot, "Fall");
+
+    expect(result.hardConstraintSummary.academicMeetingCount).toBe(2);
+    expect(result.hardConstraintSummary.reservedAssessmentWindowCount).toBe(1);
+    expect(result.reservedAssessmentWindows).toEqual([
+      expect.objectContaining({
+        id: "csc-res",
+        weekday: "Saturday",
+        courseCode: "CSC110Y5",
+        componentLabel: "RES",
+        semanticType: "reserved_assessment_window",
+        isHardCommitment: false,
+      }),
+    ]);
   });
 });
