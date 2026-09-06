@@ -1,6 +1,15 @@
 import { z } from "zod";
-import { ScheduleDataFlagSchema } from "@/src/domain/assistant-schemas";
-import { meetingSemantics, scheduleDataFlags } from "@/src/domain/assistant-data";
+import {
+  DateGapPlanGroupSchema,
+  MeetingFactSchema,
+  ScheduleDataFlagSchema,
+} from "@/src/domain/assistant-schemas";
+import {
+  groupGapPlansByDate,
+  meetingFact,
+  meetingSemantics,
+  scheduleDataFlags,
+} from "@/src/domain/assistant-data";
 import {
   ActivityTypeSchema,
   GapPlanSchema,
@@ -61,6 +70,7 @@ export const CourseContextOutputSchema = z
     courseName: z.string().min(1).max(240).nullable(),
     academicMeetings: z.array(MeetingSchema).max(100),
     reservedAssessmentWindows: z.array(MeetingSchema).max(100),
+    meetingFacts: z.array(MeetingFactSchema).max(100),
     alternatives: z.array(CourseAlternativeSchema).max(8),
     flags: z.array(ScheduleDataFlagSchema).max(40),
     notes: z.array(z.string().min(1).max(1000)).max(12),
@@ -81,11 +91,13 @@ export const ScheduleRangeOutputSchema = z
             term: TermSchema,
             academicMeetings: z.array(MeetingSchema).max(100),
             reservedAssessmentWindows: z.array(MeetingSchema).max(100),
+            meetingFacts: z.array(MeetingFactSchema).max(100),
             gapPlans: z.array(GapPlanSchema).max(100),
           })
           .strict(),
       )
       .max(14),
+    gapPlanGroups: z.array(DateGapPlanGroupSchema).max(200),
   })
   .strict();
 
@@ -227,6 +239,7 @@ export function getCourseContext(snapshot: AiSnapshot, query: string, term?: Ter
       courseName: null,
       academicMeetings: [],
       reservedAssessmentWindows: [],
+      meetingFacts: [],
       alternatives: [],
       flags: [],
       notes: ["No delegated academic course matched this query. Do not infer a course that is absent."],
@@ -246,6 +259,7 @@ export function getCourseContext(snapshot: AiSnapshot, query: string, term?: Ter
       courseName: null,
       academicMeetings: [],
       reservedAssessmentWindows: [],
+      meetingFacts: [],
       alternatives,
       flags: [],
       notes: ["Multiple delegated courses match equally well. Use search_my_schedule or a course code to disambiguate."],
@@ -280,6 +294,7 @@ export function getCourseContext(snapshot: AiSnapshot, query: string, term?: Ter
     courseName: top.courseName,
     academicMeetings,
     reservedAssessmentWindows,
+    meetingFacts: meetings.map(meetingFact),
     alternatives,
     flags,
     notes,
@@ -305,6 +320,7 @@ export function getScheduleRange(snapshot: AiSnapshot, startDate: string, days: 
       term: day.term,
       academicMeetings: day.academicMeetings,
       reservedAssessmentWindows: day.reservedAssessmentWindows,
+      meetingFacts: day.meetingFacts,
       gapPlans: day.gapPlans,
     };
   });
@@ -313,5 +329,6 @@ export function getScheduleRange(snapshot: AiSnapshot, startDate: string, days: 
     startDate,
     endDate: addDays(startDate, days - 1),
     days: entries,
+    gapPlanGroups: groupGapPlansByDate(entries, snapshot.schedule),
   };
 }
