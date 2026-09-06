@@ -15,6 +15,85 @@ const minute = z.number().int().min(0).max(1440);
 const isoDateTime = z.string().datetime({ offset: true });
 const calendarDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u);
 
+const MeetingFactSchema = z
+  .object({
+    id: z.string().min(1).max(240),
+    weekday: WeekdaySchema,
+    startTime: minute,
+    endTime: minute,
+    courseCode: z.string().min(1).max(240),
+    courseName: z.string().min(1).max(240),
+    sectionCode: z.string().min(1).max(240),
+    buildingCode: z.string().max(240).nullable(),
+    room: z.string().max(240).nullable(),
+    locationLabel: z.string().min(1).max(500),
+    semanticType: z.enum(["academic_meeting", "reserved_assessment_window"]),
+    componentLabel: z.enum(["LEC", "TUT", "PRA", "OTHER", "RES"]),
+    isHardCommitment: z.boolean(),
+  })
+  .strict();
+
+const GapPlanGroupSchema = z
+  .object({
+    term: TermSchema,
+    appliesTo: z.array(WeekdaySchema).min(1).max(7),
+    sourceGapPlanIds: z.array(z.string().min(1).max(500)).min(1).max(7),
+    startTime: minute,
+    endTime: minute,
+    durationMinutes: z.number().int().min(1).max(1440),
+    primaryAction: z.string().min(1).max(240),
+    primaryTitle: z.string().min(1).max(240),
+    primaryScore: z.number().finite(),
+    usableActivityMinutes: z.number().int().min(0).max(1440),
+    travelMinutes: z.number().int().min(0).max(1440).nullable(),
+    bufferMinutes: z.number().int().min(0).max(1440),
+    leaveByMinutes: z.number().int().min(-1440).max(2880),
+    arrivalMinutes: z.number().int().min(-1440).max(2880).nullable(),
+    routeStatus: z.enum(["routed", "approximate", "same-room", "unavailable"]),
+    routeAccuracy: z.string().min(1).max(240),
+    confidencePercent: z.number().int().min(0).max(100),
+    confidenceLabel: z.enum(["high", "medium", "low"]),
+    fallback: z.boolean(),
+    keyWarning: z.string().max(1000).nullable(),
+  })
+  .strict();
+
+export const ScheduleDataFlagSchema = z
+  .object({
+    code: z.enum([
+      "duplicate_meeting",
+      "multiple_same_section_day_windows",
+      "overlapping_section_meetings",
+      "high_section_weekly_minutes",
+      "late_meeting",
+    ]),
+    severity: z.enum(["info", "warning"]),
+    scope: z.enum(["meeting", "section", "course"]),
+    courseCode: z.string().min(1).max(240),
+    message: z.string().min(1).max(1000),
+    evidence: z
+      .object({
+        sectionCode: z.string().max(240).nullable(),
+        weekday: WeekdaySchema.nullable(),
+        meetingIds: z.array(z.string().min(1).max(240)).max(100),
+        weeklyMinutes: z.number().int().min(0).max(20_000).nullable(),
+        startTime: minute.nullable(),
+      })
+      .strict(),
+  })
+  .strict();
+
+const DecisionActionItemSchema = z
+  .object({
+    code: z.enum(["set_home_commute_minutes"]),
+    priority: z.enum(["info", "recommended", "important"]),
+    field: z.string().min(1).max(240),
+    affects: z.array(z.string().min(1).max(240)).min(1).max(12),
+    message: z.string().min(1).max(1000),
+    resolvableViaMcp: z.boolean(),
+  })
+  .strict();
+
 export const DelegationStatusOutputSchema = z.discriminatedUnion("enabled", [
   z.object({ enabled: z.literal(false) }).strict(),
   z
@@ -34,8 +113,12 @@ export const DayScheduleOutputSchema = z
     term: TermSchema,
     revision,
     meetings: z.array(MeetingSchema),
+    academicMeetings: z.array(MeetingSchema),
+    reservedAssessmentWindows: z.array(MeetingSchema),
+    meetingFacts: z.array(MeetingFactSchema),
     personalItems: z.array(PersonalItemSchema),
     gapPlans: z.array(GapPlanSchema),
+    gapPlanGroups: z.array(GapPlanGroupSchema),
   })
   .strict();
 
@@ -44,8 +127,12 @@ export const WeekScheduleOutputSchema = z
     term: TermSchema,
     revision,
     meetings: z.array(MeetingSchema),
+    academicMeetings: z.array(MeetingSchema),
+    reservedAssessmentWindows: z.array(MeetingSchema),
+    meetingFacts: z.array(MeetingFactSchema),
     personalItems: z.array(PersonalItemSchema),
     gapPlans: z.array(GapPlanSchema),
+    gapPlanGroups: z.array(GapPlanGroupSchema),
   })
   .strict();
 
@@ -255,11 +342,15 @@ export const DecisionContextOutputSchema = z
     hardConstraintSummary: z
       .object({
         academicMeetingCount: z.number().int().min(0).max(400),
+        reservedAssessmentWindowCount: z.number().int().min(0).max(400),
         fixedPersonalCount: z.number().int().min(0).max(200),
       })
       .strict(),
     days: z.array(DecisionDaySchema).length(7),
     topGapOpportunities: z.array(GapPlanSchema).max(8),
+    gapPlanGroups: z.array(GapPlanGroupSchema).max(200),
+    dataQualityFlags: z.array(ScheduleDataFlagSchema).max(40),
+    actionItems: z.array(DecisionActionItemSchema).max(12),
     gapPreferences: GapPreferencesSchema.nullable(),
     routingPreferences: RoutingPreferencesSchema.nullable(),
     limitations: z.array(z.string().max(1000)).max(12),
