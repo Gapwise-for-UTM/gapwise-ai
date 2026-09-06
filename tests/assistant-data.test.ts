@@ -116,6 +116,20 @@ describe("assistant-facing MCP data helpers", () => {
     expect(flags.every((flag) => /verify|confirm|unexpected|unusually/iu.test(flag.message))).toBe(true);
   });
 
+  it("does not call distinct recurrence ranges duplicate imports", () => {
+    const first = {
+      ...mat223Meeting("first-half", "Tuesday", 540, 600),
+      dateRange: { startDate: "2026-09-08", endDate: "2026-10-13" },
+    };
+    const second = {
+      ...mat223Meeting("second-half", "Tuesday", 540, 600),
+      dateRange: { startDate: "2026-10-20", endDate: "2026-12-01" },
+    };
+
+    const flags = scheduleDataFlags([first, second]);
+    expect(flags.map((flag) => flag.code)).not.toContain("duplicate_meeting");
+  });
+
   it("groups equivalent gap plans once and lists all applicable weekdays", () => {
     const meetings: Meeting[] = [
       boundaryMeeting("wed-before", "Wednesday", "MAT157Y5", "MN"),
@@ -165,7 +179,7 @@ describe("assistant-facing MCP data helpers", () => {
     expect(groups.map((group) => group.previousCourseCode)).toEqual(["MAT157Y5", "MAT223H5"]);
   });
 
-  it("groups repeated range occurrences with appliesToDates", () => {
+  it("groups repeated range occurrences with appliesToDates without repeating source ids", () => {
     const repeated = plan("wed", "Wednesday", "wed-before", "wed-after");
     const meetings: Meeting[] = [
       boundaryMeeting("wed-before", "Wednesday", "MAT157Y5", "MN"),
@@ -181,6 +195,7 @@ describe("assistant-facing MCP data helpers", () => {
 
     expect(groups).toHaveLength(1);
     expect(groups[0]?.appliesToDates).toEqual(["2026-09-09", "2026-09-16"]);
+    expect(groups[0]?.sourceGapPlanIds).toEqual(["wed"]);
     expect(groups[0]?.previousCourseCode).toBe("MAT157Y5");
   });
 });
