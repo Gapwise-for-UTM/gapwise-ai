@@ -163,7 +163,9 @@ export function scheduleDataFlags(meetings: Meeting[]): ScheduleDataFlag[] {
     for (let index = 1; index < sorted.length; index += 1) {
       const previous = sorted[index - 1]!;
       const current = sorted[index]!;
-      if (current.startTime < previous.endTime) {
+      const sameWindow =
+        current.startTime === previous.startTime && current.endTime === previous.endTime;
+      if (!sameWindow && current.startTime < previous.endTime) {
         overlappingIds.add(previous.id);
         overlappingIds.add(current.id);
       }
@@ -192,7 +194,15 @@ export function scheduleDataFlags(meetings: Meeting[]): ScheduleDataFlag[] {
   );
   for (const section of sections.values()) {
     const first = section[0]!;
-    const weeklyMinutes = section.reduce(
+    const distinctWeeklyWindows = [
+      ...new Map(
+        section.map((meeting) => [
+          `${meeting.weekday}|${meeting.startTime}|${meeting.endTime}`,
+          meeting,
+        ]),
+      ).values(),
+    ];
+    const weeklyMinutes = distinctWeeklyWindows.reduce(
       (total, meeting) => total + meeting.endTime - meeting.startTime,
       0,
     );
@@ -202,7 +212,7 @@ export function scheduleDataFlags(meetings: Meeting[]): ScheduleDataFlag[] {
         severity: "warning",
         scope: "section",
         courseCode: first.courseCode,
-        message: `${first.courseCode} ${first.sectionCode} totals ${weeklyMinutes} scheduled minutes per week, which is unusually high for a single section and should be verified.`,
+        message: `${first.courseCode} ${first.sectionCode} totals ${weeklyMinutes} distinct scheduled minutes per week, which is unusually high for a single section and should be verified.`,
         evidence: {
           sectionCode: first.sectionCode,
           weekday: null,
