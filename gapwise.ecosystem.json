@@ -39,8 +39,8 @@
     "typescript": {
       "package": "@gapwise/sdk",
       "registries": {
-        "npm": { "version": "0.1.1", "state": "published" },
-        "jsr": { "version": "0.1.1", "state": "published" },
+        "npm": { "version": "0.1.1", "state": "published", "role": "canonical" },
+        "jsr": { "version": "0.1.1", "state": "published", "role": "canonical" },
         "githubPackages": { "package": "@gapwise-for-utm/sdk", "version": "0.1.1", "state": "published", "role": "mirror" }
       },
       "runtimeTargets": ["node", "bun", "deno", "browser"],
@@ -48,7 +48,10 @@
     },
     "python": {
       "package": "gapwise",
-      "registries": { "pypi": { "version": "0.1.0", "state": "published" } },
+      "registries": {
+        "pypi": { "version": "0.1.0", "state": "published", "role": "canonical" },
+        "githubReleases": { "version": "0.1.0", "tag": "python-v0.1.0", "state": "published", "role": "mirror" }
+      },
       "clients": ["sync", "async"]
     }
   },
