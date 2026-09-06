@@ -1,3 +1,4 @@
+import { groupGapPlans, meetingFact } from "@/src/domain/assistant-data";
 import type { AiSnapshot, PersonalItem } from "@/src/domain/schemas";
 
 const JS_WEEKDAYS = [
@@ -78,6 +79,10 @@ export function daySchedule(snapshot: AiSnapshot, date: string) {
   const meetings = snapshot.schedule
     .filter((meeting) => academicMeetingOccursOnDate(meeting, date))
     .sort((a, b) => a.startTime - b.startTime || a.endTime - b.endTime);
+  const academicMeetings = meetings.filter((meeting) => !meeting.isReservedAssessmentWindow);
+  const reservedAssessmentWindows = meetings.filter(
+    (meeting) => meeting.isReservedAssessmentWindow,
+  );
   const personalItems = snapshot.permissions.readPersonal
     ? snapshot.personalItems
         .filter((item) => item.term === term && item.weekday === weekday)
@@ -88,9 +93,7 @@ export function daySchedule(snapshot: AiSnapshot, date: string) {
         })
     : [];
   const occurringBoundaryIds = new Set([
-    ...meetings
-      .filter((meeting) => !meeting.isReservedAssessmentWindow)
-      .map((meeting) => meeting.id),
+    ...academicMeetings.map((meeting) => meeting.id),
     ...personalItems.filter(isFixedPersonal).map((item) => item.id),
   ]);
   const gapPlans = snapshot.permissions.readGapPlans
@@ -108,8 +111,12 @@ export function daySchedule(snapshot: AiSnapshot, date: string) {
     term,
     revision: snapshot.revision,
     meetings,
+    academicMeetings,
+    reservedAssessmentWindows,
+    meetingFacts: meetings.map(meetingFact),
     personalItems,
     gapPlans,
+    gapPlanGroups: groupGapPlans(gapPlans, meetings),
   };
 }
 
@@ -122,6 +129,10 @@ export function weekSchedule(snapshot: AiSnapshot, term: "Fall" | "Winter" | "Su
         a.startTime - b.startTime ||
         a.endTime - b.endTime,
     );
+  const academicMeetings = meetings.filter((meeting) => !meeting.isReservedAssessmentWindow);
+  const reservedAssessmentWindows = meetings.filter(
+    (meeting) => meeting.isReservedAssessmentWindow,
+  );
   const personalItems = snapshot.permissions.readPersonal
     ? snapshot.personalItems
         .filter((item) => item.term === term)
@@ -143,7 +154,17 @@ export function weekSchedule(snapshot: AiSnapshot, term: "Fall" | "Winter" | "Su
             a.startTime - b.startTime,
         )
     : [];
-  return { term, revision: snapshot.revision, meetings, personalItems, gapPlans };
+  return {
+    term,
+    revision: snapshot.revision,
+    meetings,
+    academicMeetings,
+    reservedAssessmentWindows,
+    meetingFacts: meetings.map(meetingFact),
+    personalItems,
+    gapPlans,
+    gapPlanGroups: groupGapPlans(gapPlans, meetings),
+  };
 }
 
 export function gapContext(

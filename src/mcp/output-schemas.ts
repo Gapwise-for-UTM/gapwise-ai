@@ -1,5 +1,10 @@
 import { z } from "zod";
 import {
+  GapPlanGroupSchema,
+  MeetingFactSchema,
+  ScheduleDataFlagSchema,
+} from "@/src/domain/assistant-schemas";
+import {
   AiPermissionsSchema,
   GapPlanSchema,
   GapPreferencesSchema,
@@ -14,6 +19,17 @@ const revision = z.number().int().min(1);
 const minute = z.number().int().min(0).max(1440);
 const isoDateTime = z.string().datetime({ offset: true });
 const calendarDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u);
+
+const DecisionActionItemSchema = z
+  .object({
+    code: z.enum(["set_home_commute_minutes"]),
+    priority: z.enum(["info", "recommended", "important"]),
+    field: z.string().min(1).max(240),
+    affects: z.array(z.string().min(1).max(240)).min(1).max(12),
+    message: z.string().min(1).max(1000),
+    resolvableViaMcp: z.boolean(),
+  })
+  .strict();
 
 export const DelegationStatusOutputSchema = z.discriminatedUnion("enabled", [
   z.object({ enabled: z.literal(false) }).strict(),
@@ -34,8 +50,12 @@ export const DayScheduleOutputSchema = z
     term: TermSchema,
     revision,
     meetings: z.array(MeetingSchema),
+    academicMeetings: z.array(MeetingSchema),
+    reservedAssessmentWindows: z.array(MeetingSchema),
+    meetingFacts: z.array(MeetingFactSchema),
     personalItems: z.array(PersonalItemSchema),
     gapPlans: z.array(GapPlanSchema),
+    gapPlanGroups: z.array(GapPlanGroupSchema),
   })
   .strict();
 
@@ -44,8 +64,12 @@ export const WeekScheduleOutputSchema = z
     term: TermSchema,
     revision,
     meetings: z.array(MeetingSchema),
+    academicMeetings: z.array(MeetingSchema),
+    reservedAssessmentWindows: z.array(MeetingSchema),
+    meetingFacts: z.array(MeetingFactSchema),
     personalItems: z.array(PersonalItemSchema),
     gapPlans: z.array(GapPlanSchema),
+    gapPlanGroups: z.array(GapPlanGroupSchema),
   })
   .strict();
 
@@ -255,11 +279,16 @@ export const DecisionContextOutputSchema = z
     hardConstraintSummary: z
       .object({
         academicMeetingCount: z.number().int().min(0).max(400),
+        reservedAssessmentWindowCount: z.number().int().min(0).max(400),
         fixedPersonalCount: z.number().int().min(0).max(200),
       })
       .strict(),
+    reservedAssessmentWindows: z.array(MeetingFactSchema).max(100),
     days: z.array(DecisionDaySchema).length(7),
     topGapOpportunities: z.array(GapPlanSchema).max(8),
+    gapPlanGroups: z.array(GapPlanGroupSchema).max(200),
+    dataQualityFlags: z.array(ScheduleDataFlagSchema).max(40),
+    actionItems: z.array(DecisionActionItemSchema).max(12),
     gapPreferences: GapPreferencesSchema.nullable(),
     routingPreferences: RoutingPreferencesSchema.nullable(),
     limitations: z.array(z.string().max(1000)).max(12),

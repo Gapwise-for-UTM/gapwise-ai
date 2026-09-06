@@ -1,5 +1,16 @@
 import { z } from "zod";
 import {
+  DateGapPlanGroupSchema,
+  MeetingFactSchema,
+  ScheduleDataFlagSchema,
+} from "@/src/domain/assistant-schemas";
+import {
+  groupGapPlansByDate,
+  meetingFact,
+  meetingSemantics,
+  scheduleDataFlags,
+} from "@/src/domain/assistant-data";
+import {
   ActivityTypeSchema,
   GapPlanSchema,
   MeetingSchema,
@@ -59,7 +70,9 @@ export const CourseContextOutputSchema = z
     courseName: z.string().min(1).max(240).nullable(),
     academicMeetings: z.array(MeetingSchema).max(100),
     reservedAssessmentWindows: z.array(MeetingSchema).max(100),
+    meetingFacts: z.array(MeetingFactSchema).max(100),
     alternatives: z.array(CourseAlternativeSchema).max(8),
+    flags: z.array(ScheduleDataFlagSchema).max(40),
     notes: z.array(z.string().min(1).max(1000)).max(12),
   })
   .strict();
@@ -78,11 +91,13 @@ export const ScheduleRangeOutputSchema = z
             term: TermSchema,
             academicMeetings: z.array(MeetingSchema).max(100),
             reservedAssessmentWindows: z.array(MeetingSchema).max(100),
+            meetingFacts: z.array(MeetingFactSchema).max(100),
             gapPlans: z.array(GapPlanSchema).max(100),
           })
           .strict(),
       )
       .max(14),
+    gapPlanGroups: z.array(DateGapPlanGroupSchema).max(200),
   })
   .strict();
 
@@ -171,11 +186,7 @@ export function searchSchedule(
       return {
         score,
         matchReasons: reasons,
-        semanticType: meeting.isReservedAssessmentWindow
-          ? ("reserved_assessment_window" as const)
-          : ("academic_meeting" as const),
-        componentLabel: meeting.isReservedAssessmentWindow ? "RES" : meeting.activityType,
-        isHardCommitment: !meeting.isReservedAssessmentWindow,
+        ...meetingSemantics(meeting),
         meeting,
       };
     })
@@ -228,7 +239,9 @@ export function getCourseContext(snapshot: AiSnapshot, query: string, term?: Ter
       courseName: null,
       academicMeetings: [],
       reservedAssessmentWindows: [],
+      meetingFacts: [],
       alternatives: [],
+      flags: [],
       notes: ["No delegated academic course matched this query. Do not infer a course that is absent."],
     };
   }
@@ -246,7 +259,9 @@ export function getCourseContext(snapshot: AiSnapshot, query: string, term?: Ter
       courseName: null,
       academicMeetings: [],
       reservedAssessmentWindows: [],
+      meetingFacts: [],
       alternatives,
+      flags: [],
       notes: ["Multiple delegated courses match equally well. Use search_my_schedule or a course code to disambiguate."],
     };
   }
@@ -257,6 +272,7 @@ export function getCourseContext(snapshot: AiSnapshot, query: string, term?: Ter
     .sort(sortMeetings);
   const academicMeetings = meetings.filter((meeting) => !meeting.isReservedAssessmentWindow);
   const reservedAssessmentWindows = meetings.filter((meeting) => meeting.isReservedAssessmentWindow);
+  const flags = scheduleDataFlags(academicMeetings);
   const notes: string[] = [];
   if (reservedAssessmentWindows.length) {
     notes.push(
@@ -278,7 +294,9 @@ export function getCourseContext(snapshot: AiSnapshot, query: string, term?: Ter
     courseName: top.courseName,
     academicMeetings,
     reservedAssessmentWindows,
+    meetingFacts: meetings.map(meetingFact),
     alternatives,
+    flags,
     notes,
   };
 }
@@ -300,8 +318,9 @@ export function getScheduleRange(snapshot: AiSnapshot, startDate: string, days: 
       date,
       weekday: day.weekday,
       term: day.term,
-      academicMeetings: day.meetings.filter((meeting) => !meeting.isReservedAssessmentWindow),
-      reservedAssessmentWindows: day.meetings.filter((meeting) => meeting.isReservedAssessmentWindow),
+      academicMeetings: day.academicMeetings,
+      reservedAssessmentWindows: day.reservedAssessmentWindows,
+      meetingFacts: day.meetingFacts,
       gapPlans: day.gapPlans,
     };
   });
@@ -310,5 +329,6 @@ export function getScheduleRange(snapshot: AiSnapshot, startDate: string, days: 
     startDate,
     endDate: addDays(startDate, days - 1),
     days: entries,
+    gapPlanGroups: groupGapPlansByDate(entries, snapshot.schedule),
   };
 }

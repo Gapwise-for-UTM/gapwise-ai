@@ -1,3 +1,4 @@
+import { scheduleDataFlags } from "@/src/domain/assistant-data";
 import type { AiSnapshot, PersonalItem } from "@/src/domain/schemas";
 import { daySchedule, weekSchedule } from "@/src/domain/schedule";
 
@@ -55,10 +56,6 @@ function isFlexiblePersonal(item: PersonalItem): item is FlexiblePersonalItem {
   return item.flexibility.kind === "flexible";
 }
 
-function activeAcademic(meetings: Meeting[]): Meeting[] {
-  return meetings.filter((meeting) => !meeting.isReservedAssessmentWindow);
-}
-
 function scopeData(snapshot: AiSnapshot, scope: DecisionScope): ScopedData {
   if (scope.kind === "date") {
     const day = daySchedule(snapshot, scope.date);
@@ -66,7 +63,7 @@ function scopeData(snapshot: AiSnapshot, scope: DecisionScope): ScopedData {
       term: day.term,
       weekday: day.weekday,
       date: scope.date,
-      meetings: activeAcademic(day.meetings),
+      meetings: day.academicMeetings,
       personalItems: day.personalItems,
       gapPlans: day.gapPlans,
     };
@@ -77,7 +74,7 @@ function scopeData(snapshot: AiSnapshot, scope: DecisionScope): ScopedData {
     term: scope.term,
     weekday: scope.weekday,
     date: null,
-    meetings: activeAcademic(week.meetings).filter((meeting) => meeting.weekday === scope.weekday),
+    meetings: week.academicMeetings.filter((meeting) => meeting.weekday === scope.weekday),
     personalItems: week.personalItems.filter((item) => item.weekday === scope.weekday),
     gapPlans: week.gapPlans.filter((plan) => plan.weekday === scope.weekday),
   };
@@ -425,7 +422,7 @@ export function decisionContext(snapshot: AiSnapshot, term: Term) {
     "Sunday",
   ] as const;
   const days = weekdays.map((weekday) => {
-    const meetings = activeAcademic(week.meetings).filter((meeting) => meeting.weekday === weekday);
+    const meetings = week.academicMeetings.filter((meeting) => meeting.weekday === weekday);
     const fixedPersonal = week.personalItems.filter(
       (item): item is FixedPersonalItem => isFixedPersonal(item) && item.weekday === weekday,
     );
@@ -491,17 +488,48 @@ export function decisionContext(snapshot: AiSnapshot, term: Term) {
     limitations.push("Routing preferences are not delegated.");
   }
 
+  const actionItems: Array<{
+    code: "set_home_commute_minutes";
+    priority: "recommended";
+    field: string;
+    affects: string[];
+    message: string;
+    resolvableViaMcp: boolean;
+  }> = [];
+  if (
+    snapshot.permissions.readGapPreferences &&
+    snapshot.gapPreferences?.willingToLeaveCampus === true &&
+    snapshot.gapPreferences.oneWayHomeCommuteMinutes === null
+  ) {
+    actionItems.push({
+      code: "set_home_commute_minutes",
+      priority: "recommended",
+      field: "gapPreferences.oneWayHomeCommuteMinutes",
+      affects: ["go_home_recommendations", "leave_campus_feasibility"],
+      message:
+        "Set a one-way home commute time so Gapwise can evaluate whether going home during long gaps is feasible.",
+      resolvableViaMcp: snapshot.permissions.writeGapPreferences,
+    });
+  }
+
   return {
     revision: snapshot.revision,
     generatedAt: snapshot.generatedAt,
     term,
     permissions: snapshot.permissions,
     hardConstraintSummary: {
-      academicMeetingCount: activeAcademic(week.meetings).length,
+      academicMeetingCount: week.academicMeetings.length,
+      reservedAssessmentWindowCount: week.reservedAssessmentWindows.length,
       fixedPersonalCount: week.personalItems.filter(isFixedPersonal).length,
     },
+    reservedAssessmentWindows: week.meetingFacts.filter(
+      (meeting) => meeting.semanticType === "reserved_assessment_window",
+    ),
     days,
     topGapOpportunities: opportunities,
+    gapPlanGroups: week.gapPlanGroups,
+    dataQualityFlags: scheduleDataFlags(week.academicMeetings),
+    actionItems,
     gapPreferences: snapshot.permissions.readGapPreferences ? snapshot.gapPreferences : null,
     routingPreferences: snapshot.permissions.readRoutingPreferences
       ? snapshot.routingPreferences

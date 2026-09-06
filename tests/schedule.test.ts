@@ -53,6 +53,24 @@ const snapshot: AiSnapshot = {
       dateRange: { startDate: "2026-09-07", endDate: "2026-12-07" },
       recurrenceIntervalWeeks: 1,
     },
+    {
+      id: "csc-res",
+      courseCode: "CSC110Y5",
+      activityType: "LEC",
+      sectionCode: "LEC0101",
+      courseName: "Foundations of Computer Science",
+      startTime: 600,
+      endTime: 720,
+      weekday: "Saturday",
+      buildingCode: null,
+      room: null,
+      term: "Fall",
+      locationUnknown: true,
+      isReservedAssessmentWindow: true,
+      locationType: "tba",
+      dateRange: { startDate: "2026-09-12", endDate: "2026-12-05" },
+      recurrenceIntervalWeeks: 1,
+    },
   ],
   personalItems: [],
   gapPlans: [
@@ -101,23 +119,39 @@ const snapshot: AiSnapshot = {
 
 describe("delegated schedule queries", () => {
   it("uses source-backed dates and exclusions", () => {
-    expect(daySchedule(snapshot, "2026-09-07").meetings).toHaveLength(2);
+    expect(daySchedule(snapshot, "2026-09-07").academicMeetings).toHaveLength(2);
     expect(daySchedule(snapshot, "2026-09-07").gapPlans).toHaveLength(1);
-    expect(daySchedule(snapshot, "2026-10-12").meetings).toHaveLength(1);
+    expect(daySchedule(snapshot, "2026-10-12").academicMeetings).toHaveLength(1);
     expect(daySchedule(snapshot, "2026-10-12").gapPlans).toHaveLength(0);
-    expect(daySchedule(snapshot, "2026-12-14").meetings).toHaveLength(0);
+    expect(daySchedule(snapshot, "2026-12-14").academicMeetings).toHaveLength(0);
     expect(daySchedule(snapshot, "2026-12-14").gapPlans).toHaveLength(0);
   });
 
-  it("does not invent weekend meetings", () => {
-    expect(daySchedule(snapshot, "2026-09-12").meetings).toHaveLength(0);
-    expect(daySchedule(snapshot, "2026-09-12").gapPlans).toHaveLength(0);
+  it("preserves Saturday RES without treating it as a hard commitment", () => {
+    const saturday = daySchedule(snapshot, "2026-09-12");
+    expect(saturday.meetings).toHaveLength(1);
+    expect(saturday.academicMeetings).toHaveLength(0);
+    expect(saturday.reservedAssessmentWindows).toHaveLength(1);
+    expect(saturday.meetingFacts[0]).toMatchObject({
+      componentLabel: "RES",
+      semanticType: "reserved_assessment_window",
+      isHardCommitment: false,
+    });
+    expect(saturday.gapPlans).toHaveLength(0);
   });
 
   it("returns the normalized term timetable and delegated Gapwise plan", () => {
     const week = weekSchedule(snapshot, "Fall");
     expect(week.revision).toBe(7);
-    expect(week.meetings.map((meeting) => meeting.courseCode)).toEqual(["MAT157Y5", "CSC110Y5"]);
+    expect(week.academicMeetings.map((meeting) => meeting.courseCode)).toEqual([
+      "MAT157Y5",
+      "CSC110Y5",
+    ]);
+    expect(week.reservedAssessmentWindows).toHaveLength(1);
+    expect(week.meetingFacts.find((meeting) => meeting.id === "csc-res")).toMatchObject({
+      componentLabel: "RES",
+      isHardCommitment: false,
+    });
     expect(week.gapPlans).toHaveLength(1);
     expect(week.gapPlans[0]?.assessment.routeStatus).toBe("routed");
   });
