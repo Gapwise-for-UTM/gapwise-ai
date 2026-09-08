@@ -18,16 +18,67 @@ img {
   max-width: 100%;
 }
 
+/* Shared Gapwise public-header geometry. Product color stays local; spacing and motion do not. */
+header {
+  min-height: 64px !important;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.16) !important;
+  background: #0b0810 !important;
+  backdrop-filter: none !important;
+}
+
+header > div {
+  width: min(1120px, calc(100% - 32px)) !important;
+  min-height: 64px !important;
+  gap: 16px !important;
+}
+
+header > div > a {
+  flex-shrink: 0;
+  gap: 10px !important;
+  font-size: 16px !important;
+  line-height: 1;
+  font-weight: 700 !important;
+  letter-spacing: -0.025em !important;
+}
+
+header > div > a img {
+  width: 28px !important;
+  height: 28px !important;
+  filter: none !important;
+}
+
+header nav {
+  gap: 4px !important;
+  font-size: 13px !important;
+}
+
+header nav a {
+  display: inline-flex !important;
+  min-height: 36px;
+  align-items: center;
+  padding: 0 10px !important;
+  border-radius: 6px;
+  white-space: nowrap;
+  transition:
+    color 120ms ease,
+    background-color 120ms ease;
+}
+
+header nav a:hover {
+  color: #f7f3fb !important;
+  background: rgba(139, 92, 246, 0.07);
+}
+
 @media (max-width: 720px) {
   header > div {
     width: calc(100% - 32px) !important;
-    min-height: 72px !important;
+    min-height: 64px !important;
     gap: 12px !important;
   }
 
   header > div > a {
     flex-shrink: 0;
-    font-size: 16px;
+    font-size: 16px !important;
   }
 
   header nav {
@@ -35,7 +86,8 @@ img {
   }
 
   header nav a {
-    padding: 8px !important;
+    min-height: 36px;
+    padding: 0 8px !important;
     white-space: nowrap;
   }
 
@@ -64,8 +116,8 @@ img {
     max-width: 100% !important;
     margin: 24px 0 20px !important;
     font-size: clamp(2.65rem, 12.5vw, 3.6rem) !important;
-    line-height: .96 !important;
-    letter-spacing: -.06em !important;
+    line-height: 0.96 !important;
+    letter-spacing: -0.06em !important;
     overflow-wrap: anywhere;
   }
 
@@ -135,12 +187,12 @@ img {
 
   header > div > a {
     gap: 8px !important;
-    font-size: 15px;
+    font-size: 15px !important;
   }
 
   header > div > a img {
-    width: 27px;
-    height: 27px;
+    width: 27px !important;
+    height: 27px !important;
   }
 
   header nav {
@@ -158,5 +210,11 @@ img {
   main > section:first-child > div,
   main > section:first-child > aside {
     padding-inline: 20px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  header nav a {
+    transition: none;
   }
 }
