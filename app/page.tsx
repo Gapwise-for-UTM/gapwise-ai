@@ -9,6 +9,7 @@ export default function HomePage() {
           </a>
           <nav style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
             <a href="https://docs.gapwise.ca/ai" style={{ color: "#a59aaa", textDecoration: "none", padding: "8px 10px" }}>Docs</a>
+            <a href="https://gapwise.ca/github/ai" style={{ color: "#a59aaa", textDecoration: "none", padding: "8px 10px" }}>GitHub</a>
             <a href="https://gapwise.ca" style={{ color: "#a59aaa", textDecoration: "none", padding: "8px 10px" }}>Gapwise</a>
           </nav>
         </div>
