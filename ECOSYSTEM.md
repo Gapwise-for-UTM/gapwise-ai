@@ -1,6 +1,6 @@
 # Gapwise ecosystem integration
 
-`gapwise-ai` is the OAuth/MCP trust boundary of the six-repository Gapwise ecosystem. It exposes stateless public campus intelligence plus explicitly delegated, minimized student context and bounded actions to compatible AI clients. It does not replace deterministic Gapwise product logic, the public campus API, or the public SDKs.
+`ai` is the OAuth/MCP trust boundary of the six-repository Gapwise ecosystem. It exposes stateless public campus intelligence plus explicitly delegated, minimized student context and bounded actions to compatible AI clients. It does not replace deterministic Gapwise product logic, the public campus API, or the public SDKs.
 
 All six canonical repositories are owned by the **Gapwise for UTM** GitHub organization (`Gapwise-for-UTM`). Andrew Muratov remains the creator and primary maintainer.
 
@@ -8,13 +8,17 @@ All six canonical repositories are owned by the **Gapwise for UTM** GitHub organ
 
 - GitHub organization: `https://github.com/Gapwise-for-UTM`
 - Core product/API/SDK source: `Gapwise-for-UTM/gapwise`
+- Native Android client: `Gapwise-for-UTM/android`
+- AI/MCP source: `Gapwise-for-UTM/ai`
+- Campus data/provenance source: `Gapwise-for-UTM/data`
+- Developer documentation source: `Gapwise-for-UTM/docs`
+- Operational status source: `Gapwise-for-UTM/status`
 - Public API: `https://api.gapwise.ca/v1`
 - OpenAPI: `https://api.gapwise.ca/openapi.json`
 - Data/provenance: `https://data.gapwise.ca`
 - Developer docs: `https://docs.gapwise.ca`
 - AI/MCP endpoint: `https://ai.gapwise.ca/api/mcp`
 - Operational status: `https://status.gapwise.ca`
-- Native mobile client: `Gapwise-for-UTM/gapwise-mobile`
 
 ## Public SDK state
 
@@ -40,10 +44,10 @@ These SDKs intentionally expose public campus intelligence only. They do not gra
 When an MCP resource/tool/schema changes, check whether it requires updates to:
 
 - canonical `gapwise` state or deterministic calculations;
-- mobile AI surfaces and permission UX;
-- `gapwise-docs` AI/OAuth/MCP documentation;
-- `gapwise-data` if new campus facts/provenance are surfaced;
-- `gapwise-status` health probes or incident wording;
+- `android` AI surfaces and permission UX;
+- `docs` AI/OAuth/MCP documentation;
+- `data` if new campus facts/provenance are surfaced;
+- `status` health probes or incident wording;
 - public SDK docs only when the public campus contract itself changes.
 
 AI is integrated with the ecosystem through explicit contracts and permissions, not through hidden duplication of product logic.
