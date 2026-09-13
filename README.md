@@ -165,11 +165,11 @@ The JavaScript/TypeScript SDK is published on npm and JSR; the Python SDK is pub
 | Repository | Role | Primary surface |
 | --- | --- | --- |
 | **[`gapwise`](https://github.com/Gapwise-for-UTM/gapwise)** | Core web/PWA, canonical student state, deterministic campus engine, public API, and SDK source | [gapwise.ca](https://gapwise.ca) |
-| **[`gapwise-mobile`](https://github.com/Gapwise-for-UTM/gapwise-mobile)** | Native iOS and Android client | Native mobile app |
-| **[`gapwise-ai`](https://github.com/Gapwise-for-UTM/gapwise-ai)** | Remote MCP layer for public campus intelligence and explicitly delegated student context | [ai.gapwise.ca](https://ai.gapwise.ca) |
-| **[`gapwise-data`](https://github.com/Gapwise-for-UTM/gapwise-data)** | Open campus-data, provenance, schema, validation, and reuse portal | [data.gapwise.ca](https://data.gapwise.ca) |
-| **[`gapwise-docs`](https://github.com/Gapwise-for-UTM/gapwise-docs)** | Canonical public developer documentation | [docs.gapwise.ca](https://docs.gapwise.ca) |
-| **[`gapwise-status`](https://github.com/Gapwise-for-UTM/gapwise-status)** | Independent service-health monitoring and incident communication | [status.gapwise.ca](https://status.gapwise.ca) |
+| **[`android`](https://github.com/Gapwise-for-UTM/android)** | Native Kotlin + Jetpack Compose Android client | Android app |
+| **[`ai`](https://github.com/Gapwise-for-UTM/ai)** | Remote MCP layer for public campus intelligence and explicitly delegated student context | [ai.gapwise.ca](https://ai.gapwise.ca) |
+| **[`data`](https://github.com/Gapwise-for-UTM/data)** | Open campus-data, provenance, schema, validation, and reuse portal | [data.gapwise.ca](https://data.gapwise.ca) |
+| **[`docs`](https://github.com/Gapwise-for-UTM/docs)** | Canonical public developer documentation | [docs.gapwise.ca](https://docs.gapwise.ca) |
+| **[`status`](https://github.com/Gapwise-for-UTM/status)** | Independent service-health monitoring and incident communication | [status.gapwise.ca](https://status.gapwise.ca) |
 
 All six repositories are owned by the **Gapwise for UTM** GitHub organization (`Gapwise-for-UTM`). Andrew Muratov remains the creator and primary maintainer.
 
@@ -180,8 +180,8 @@ All six repositories are owned by the **Gapwise for UTM** GitHub organization (`
 Requirements: Node.js 24.x, npm, and a compatible Supabase project for authenticated/delegation flows.
 
 ```bash
-git clone https://github.com/Gapwise-for-UTM/gapwise-ai.git
-cd gapwise-ai
+git clone https://github.com/Gapwise-for-UTM/ai.git
+cd ai
 npm ci
 cp .env.example .env.local
 npm run check
