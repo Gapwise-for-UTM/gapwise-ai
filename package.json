@@ -5,13 +5,13 @@
   "description": "Permissioned, provider-neutral MCP integration service for Gapwise.",
   "license": "MIT",
   "author": "Andrew Muratov",
-  "homepage": "https://gapwise.ca",
+  "homepage": "https://ai.gapwise.ca",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Gapwise-for-UTM/gapwise-ai.git"
+    "url": "https://github.com/Gapwise-for-UTM/ai.git"
   },
   "bugs": {
-    "url": "https://github.com/Gapwise-for-UTM/gapwise-ai/issues"
+    "url": "https://github.com/Gapwise-for-UTM/ai/issues"
   },
   "type": "module",
   "engines": {

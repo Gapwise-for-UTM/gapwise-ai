@@ -6,7 +6,7 @@
 
 ### Permissioned intelligence on top of deterministic Gapwise truth.
 
-**The provider-neutral Model Context Protocol (MCP) integration layer for public UTM campus intelligence and explicitly delegated Gapwise student context.**
+**The provider-neutral Model Context Protocol (MCP) layer for public UTM campus intelligence and explicitly delegated Gapwise student context.**
 
 [![AI Service](https://img.shields.io/badge/AI_Service-ai.gapwise.ca-8B5CF6?style=for-the-badge&logo=vercel&logoColor=white)](https://ai.gapwise.ca/api/health)
 [![MCP](https://img.shields.io/badge/MCP-Streamable_HTTP-8B5CF6?style=for-the-badge)](https://ai.gapwise.ca/api/mcp)
@@ -16,7 +16,7 @@
 
 <br />
 
-**[Gapwise](https://gapwise.ca)** · **[AI](https://gapwise.ca/ai)** · **[Docs](https://docs.gapwise.ca)** · **[Support](https://gapwise.ca/support)** · **[Status](https://status.gapwise.ca)** · **[MCP](https://ai.gapwise.ca/api/mcp)** · **[Security](SECURITY.md)**
+**[Gapwise](https://gapwise.ca)** · **[Android](https://github.com/Gapwise-for-UTM/android)** · **[iOS](https://github.com/Gapwise-for-UTM/ios)** · **[AI](https://ai.gapwise.ca)** · **[Data](https://data.gapwise.ca)** · **[Docs](https://docs.gapwise.ca)** · **[Status](https://status.gapwise.ca)**
 
 </div>
 
@@ -24,13 +24,13 @@
 
 ## What Gapwise AI is
 
-Gapwise AI is the provider-neutral AI integration layer of **Gapwise**, a campus-intelligence ecosystem created and engineered by **Andrew Muratov**.
+Gapwise AI is the provider-neutral AI integration layer of **Gapwise**, a privacy-first timetable and campus-intelligence platform for University of Toronto students.
 
-The main [`gapwise`](https://github.com/Gapwise-for-UTM/gapwise) platform owns canonical student state and deterministic campus calculations. Gapwise AI exposes a narrow remote MCP interface to that truth rather than becoming a second timetable, routing, or planning engine.
+The main [`gapwise`](https://github.com/Gapwise-for-UTM/gapwise) platform owns canonical student state and deterministic timetable/campus calculations. [`android`](https://github.com/Gapwise-for-UTM/android) and [`ios`](https://github.com/Gapwise-for-UTM/ios) provide native clients. Gapwise AI exposes a narrow remote MCP interface to bounded context rather than becoming a second timetable, routing, or planning engine.
 
 > **Gapwise owns the facts. Connected AI clients reason over deterministic public campus data and explicitly delegated private context.**
 
-There is no server-side LLM provider required by this repository. Compatible MCP clients supply the model/reasoning layer. Gapwise AI supplies schemas, deterministic context, authorization for private tools, and bounded mutation semantics.
+There is no server-side LLM provider required by this repository. Compatible MCP clients supply model inference. Gapwise AI supplies schemas, deterministic context, authorization for private tools, and bounded mutation semantics.
 
 ---
 
@@ -53,7 +53,7 @@ These four tools require no private Gapwise account context:
 - `route_between_utm_buildings`
 - `plan_utm_gap_window`
 
-They operate on deterministic public Gapwise campus data and never read a student's timetable, friends, precise location, or private sync state.
+They operate on deterministic public **UTM** campus data and never read a student's timetable, friends, precise location, or private sync state. University-wide timetable support elsewhere in Gapwise does not change the scope of these public UTM campus tools.
 
 ### Permissioned private reads and planning
 
@@ -78,7 +78,7 @@ Four tools can queue bounded user-authorized changes:
 - `delete_personal_item`
 - `update_gap_preferences`
 
-Academic meetings remain source-backed and **cannot be created, edited, or deleted by an AI client**. Personal-item/preference writes are typed, permission-checked, revision-bound, idempotency-bounded, and queued for Gapwise rather than granting an assistant arbitrary access to canonical encrypted state.
+Academic meetings remain source-backed and **cannot be created, edited, or deleted by an AI client**. Supported personal-item/preference writes are typed, permission-checked, revision-bound, idempotency-bounded, and queued for Gapwise rather than granting an assistant arbitrary access to canonical encrypted state.
 
 For the exact behavioral contract, see [`docs/TOOL_CONTRACT.md`](docs/TOOL_CONTRACT.md).
 
@@ -87,7 +87,7 @@ For the exact behavioral contract, see [`docs/TOOL_CONTRACT.md`](docs/TOOL_CONTR
 ## Architecture and trust boundary
 
 ```text
-                         public campus request
+                         public UTM campus request
 MCP client ------------------------------------------+
                                                      |
                                                      v
@@ -96,8 +96,8 @@ MCP client ------------------------------------------+
                                                      v
                                       deterministic Gapwise campus API
 
-Gapwise browser / platform
-  canonical timetable + deterministic campus state
+Gapwise web / native clients
+ canonical timetable + deterministic product state
                     |
                     | explicit minimized delegation
                     v
@@ -120,11 +120,11 @@ OAuth protected-resource metadata is published at the same first-party origin. P
 
 ---
 
-## Release and directory posture
+## Release and compatibility posture
 
-The server is intentionally provider-neutral. ChatGPT, Claude, and other compatible clients consume the same tools, schemas, and Gapwise authorization semantics.
+The server is intentionally provider-neutral. ChatGPT, Claude, and other compatible clients can consume the same tools, schemas, and Gapwise authorization semantics when their MCP/OAuth surfaces are compatible.
 
-Named-client support is **evidence-gated**. Gapwise does not describe ChatGPT or Claude as production-supported until the exact current client surface has passed the real OAuth/read/write/revoke and negative-path matrix in [`docs/CLIENT_VALIDATION.md`](docs/CLIENT_VALIDATION.md).
+Named-client support is **evidence-gated**. Gapwise does not describe a client as production-supported until the exact current surface has passed the OAuth/read/write/revoke and negative-path matrix in [`docs/CLIENT_VALIDATION.md`](docs/CLIENT_VALIDATION.md).
 
 The directory-review package is maintained in:
 
@@ -164,14 +164,15 @@ The JavaScript/TypeScript SDK is published on npm and JSR; the Python SDK is pub
 
 | Repository | Role | Primary surface |
 | --- | --- | --- |
-| **[`gapwise`](https://github.com/Gapwise-for-UTM/gapwise)** | Core web/PWA, canonical student state, deterministic campus engine, public API, and SDK source | [gapwise.ca](https://gapwise.ca) |
-| **[`gapwise-mobile`](https://github.com/Gapwise-for-UTM/gapwise-mobile)** | Native iOS and Android client | Native mobile app |
-| **[`gapwise-ai`](https://github.com/Gapwise-for-UTM/gapwise-ai)** | Remote MCP layer for public campus intelligence and explicitly delegated student context | [ai.gapwise.ca](https://ai.gapwise.ca) |
-| **[`gapwise-data`](https://github.com/Gapwise-for-UTM/gapwise-data)** | Open campus-data, provenance, schema, validation, and reuse portal | [data.gapwise.ca](https://data.gapwise.ca) |
-| **[`gapwise-docs`](https://github.com/Gapwise-for-UTM/gapwise-docs)** | Canonical public developer documentation | [docs.gapwise.ca](https://docs.gapwise.ca) |
-| **[`gapwise-status`](https://github.com/Gapwise-for-UTM/gapwise-status)** | Independent service-health monitoring and incident communication | [status.gapwise.ca](https://status.gapwise.ca) |
+| **[`gapwise`](https://github.com/Gapwise-for-UTM/gapwise)** | Core web/PWA, canonical timetable/gap/routing semantics, public API, OpenAPI, and SDK source | [gapwise.ca](https://gapwise.ca) / [api.gapwise.ca](https://api.gapwise.ca/v1) |
+| **[`android`](https://github.com/Gapwise-for-UTM/android)** | Native Kotlin + Jetpack Compose Android client | Android app |
+| **[`ios`](https://github.com/Gapwise-for-UTM/ios)** | Native Swift + SwiftUI iOS client | iOS app |
+| **[`ai`](https://github.com/Gapwise-for-UTM/ai)** | OAuth/MCP layer for public UTM intelligence and delegated student context | [ai.gapwise.ca](https://ai.gapwise.ca) |
+| **[`data`](https://github.com/Gapwise-for-UTM/data)** | Canonical public UTM campus data, provenance, schemas, validation, and distribution | [data.gapwise.ca](https://data.gapwise.ca) |
+| **[`docs`](https://github.com/Gapwise-for-UTM/docs)** | Canonical public developer documentation | [docs.gapwise.ca](https://docs.gapwise.ca) |
+| **[`status`](https://github.com/Gapwise-for-UTM/status)** | Independent service-health monitoring and incident communication | [status.gapwise.ca](https://status.gapwise.ca) |
 
-All six repositories are owned by the **Gapwise for UTM** GitHub organization (`Gapwise-for-UTM`). Andrew Muratov remains the creator and primary maintainer.
+All seven first-party product repositories are owned by the **Gapwise for UTM** GitHub organization (`Gapwise-for-UTM`). Organization-wide GitHub defaults live in [`.github`](https://github.com/Gapwise-for-UTM/.github). Andrew Muratov remains the creator and primary maintainer.
 
 ---
 
@@ -180,8 +181,8 @@ All six repositories are owned by the **Gapwise for UTM** GitHub organization (`
 Requirements: Node.js 24.x, npm, and a compatible Supabase project for authenticated/delegation flows.
 
 ```bash
-git clone https://github.com/Gapwise-for-UTM/gapwise-ai.git
-cd gapwise-ai
+git clone https://github.com/Gapwise-for-UTM/ai.git
+cd ai
 npm ci
 cp .env.example .env.local
 npm run check
@@ -192,10 +193,18 @@ Security-sensitive changes should preserve the documented authorization, encrypt
 
 ---
 
-## Project relationship
+## Independent project
 
-Gapwise is an independent project created by Andrew Muratov. It is not an official University of Toronto service and is not affiliated with or endorsed by the University of Toronto.
+> **Gapwise is an independent student software project created by Andrew Muratov. It is not affiliated with, endorsed by, or an official service of the University of Toronto.**
 
 ## License
 
 [MIT](LICENSE) © 2026 Andrew Muratov.
+
+<div align="center">
+
+**Deterministic context in. Permissioned reasoning out.**
+
+[Open Gapwise AI →](https://ai.gapwise.ca)
+
+</div>
