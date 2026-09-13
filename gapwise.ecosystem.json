@@ -14,7 +14,8 @@
   },
   "repositories": {
     "core": "https://github.com/Gapwise-for-UTM/gapwise",
-    "mobile": "https://github.com/Gapwise-for-UTM/android",
+    "android": "https://github.com/Gapwise-for-UTM/android",
+    "ios": "https://github.com/Gapwise-for-UTM/ios",
     "ai": "https://github.com/Gapwise-for-UTM/ai",
     "data": "https://github.com/Gapwise-for-UTM/data",
     "docs": "https://github.com/Gapwise-for-UTM/docs",
@@ -22,7 +23,8 @@
   },
   "ownership": {
     "core": ["student-state", "deterministic-domain-logic", "routing-algorithms", "gap-planning", "map-product-ui", "public-api", "openapi", "typescript-sdk", "python-sdk"],
-    "mobile": ["native-android-ux", "device-integration", "android-distribution"],
+    "android": ["native-android-ux", "android-device-integration", "android-distribution"],
+    "ios": ["native-ios-ux", "ios-device-integration", "ios-distribution"],
     "ai": ["oauth", "mcp", "delegation", "bounded-ai-actions"],
     "data": ["canonical-public-campus-facts", "campus-geometry", "entrances", "routing-graph-data", "provenance", "schemas", "evidence", "attribution", "validation", "reuse"],
     "docs": ["released-developer-documentation"],
