@@ -2,7 +2,10 @@
   "name": "gapwise-ai",
   "version": "0.1.0",
   "private": true,
-  "description": "Provider-neutral MCP and OAuth integration layer for Gapwise AI.",
+  "description": "Permissioned, provider-neutral MCP integration service for Gapwise.",
+  "license": "MIT",
+  "author": "Andrew Muratov",
+  "homepage": "https://ai.gapwise.ca",
   "repository": {
     "type": "git",
     "url": "https://github.com/Gapwise-for-UTM/ai.git"
@@ -10,35 +13,34 @@
   "bugs": {
     "url": "https://github.com/Gapwise-for-UTM/ai/issues"
   },
-  "homepage": "https://ai.gapwise.ca",
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --import tsx 'tests/**/*.test.ts'",
-    "check": "npm run typecheck && npm run lint && npm test && npm run build"
+    "test": "vitest run",
+    "scan:secrets": "node scripts/scan-secrets.mjs",
+    "check:cost-model": "node scripts/check-cost-model.mjs",
+    "audit:production": "node scripts/audit-production-dependencies.mjs",
+    "check": "npm run scan:secrets && npm run check:cost-model && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.26.0",
-    "@supabase/supabase-js": "^2.57.4",
-    "next": "^16.0.10",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
-    "zod": "^3.25.76"
+    "@modelcontextprotocol/server": "2.0.0",
+    "mcp-handler": "2.1.1",
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "4.5.4"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.3.1",
-    "@types/node": "^24.10.1",
-    "@types/react": "^19.2.7",
-    "@types/react-dom": "^19.2.3",
-    "eslint": "^9.39.1",
-    "eslint-config-next": "^16.0.10",
-    "tsx": "^4.20.6",
-    "typescript": "^5.9.3"
-  },
-  "engines": {
-    "node": ">=24"
+    "@types/node": "24.13.3",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
   }
 }
